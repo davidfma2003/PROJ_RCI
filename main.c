@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "main.h"
 
 int main(int argc, char *argv[]){
@@ -23,5 +19,6 @@ int main(int argc, char *argv[]){
         printf("Valores de portos TCP ou UDP incoerentes\n");
         exit(0);
     }
+    interface(&inicial_inf);
     return 0;
 }

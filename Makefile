@@ -4,17 +4,15 @@ CFLAGS  = -Wall -pedantic -g -pthread -lpthread
 
 default: all
 
-all:main.o
-	gcc $(CFLAGS) -o COR main.o -lgd
+all:main.o user_interface.o
+	gcc $(CFLAGS) -o COR main.o user_interface.o -lgd
 
-main.o: main.c main.h
+main.o: main.c main.h 
 	gcc  $(CFLAGS) -c main.c
 
-#image-lib.o: image-lib.c image-lib.h
-	#gcc  $(CFLAGS) -c image-lib.c
+user_interface.o: user_interface.c user_interface.h 
+	gcc  $(CFLAGS) -c user_interface.c
 
-#input.o: input.c input.h
-	#gcc  $(CFLAGS) -c input.c
 
 	
 clean:
