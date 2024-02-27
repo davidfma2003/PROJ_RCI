@@ -11,5 +11,6 @@
 // Function declarations or prototypes
 
 int main(int argc, char *argv[]);
+void limparBuffer();
 
 #endif // MAIN_H
