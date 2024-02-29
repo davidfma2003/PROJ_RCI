@@ -9,7 +9,9 @@ int main(int argc, char *argv[]){
     conect_inf data;
     strcpy(data.reg_IP,"193.136.138.142");
     strcpy(data.reg_UDP,"59000");
-    
+    data.sucessor.ID[0]='\0';
+
+
     data.server_join=false;
     data.ring[0]='\0';
     data.id[0]='\0';
@@ -59,13 +61,12 @@ int main(int argc, char *argv[]){
                 
             }
             if (FD_ISSET(data.host_info.fd,&rfds)){
-                printf("Message\n");
+                printf("New predecessor\n");
+                add_client(&data);
             }
         }
 
     }
-
-
     return 0;
 }
 
@@ -124,15 +125,31 @@ void user_input( conect_inf* data){
     }
     else if (input[0]=='d' && input[1]=='j'){
         sscanf(input,"%*s %s",id_buff);
-        if (strcmp(data->id,id_buff)==0){
-            printf("Não é possível registar um nó com o mesmo id que o nó atual\n");
+        if (data->id[0]!='\0' && strcmp(data->id,id_buff)!=0){
+            printf("Não é possível registar um nó com id difrente do registado no servidor\n");
+            
+        }
+        sscanf(input,"%*s %s %s %s %s",data->id,data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
+        if (atoi(data->id)<0 || atoi(data->id)>99 || strlen(data->id)!=2){
+            printf("Valor de id inválido (necessário 2 digitos)\nPor favor tente novamente\n");
+            
+        }
+        else if (atoi(data->sucessor.ID)<0 || atoi(data->sucessor.ID)>99 || strlen(data->sucessor.ID)!=2){
+            printf("Valor de id do sucessor inválido (necessário 2 digitos)\nPor favor tente novamente\n");
+            
+        }
+        else if (atoi(data->sucessor.PORT)<=0){
+            printf("Valor de porto do sucessor inválido\nPor favor tente novamente\n");
+        }
+        else{
+            direct_join(data);
             return;
         }
-        sscanf(input,"%*s %*s %s %s %s",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
-        
+        data->sucessor.ID[0]='\0';
     }
     else{
-        printf("Input iválido\nPor favor tente novamente\n");
+        printf("Input inválido\nPor favor tente novamente\n");
     }
+    return;
 }
 

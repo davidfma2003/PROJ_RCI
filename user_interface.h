@@ -14,15 +14,6 @@
 #include <time.h>
 #include <stdbool.h>
 
-
-
-//estrutura para guardar informação das ligações
-typedef struct _node{
-    char ID;
-    char IP;
-    char* PORT;
-}node;
-
 //estrutura para guardar informação do servidor TCP
 typedef struct _TCP_server{
     int fd;
@@ -31,6 +22,15 @@ typedef struct _TCP_server{
     struct addrinfo *res;
     socklen_t addrlen;
 }TCP_server;
+
+
+//estrutura para guardar informação das ligações
+typedef struct _node{
+    char ID[10];
+    char IP[30];
+    char PORT[10];
+    TCP_server TCP;
+}node;
 
 
 
@@ -51,7 +51,7 @@ typedef struct IP_s{
     
 
     TCP_server host_info;   //informação do servidor TCP
-
+    TCP_server client_info;    //informação do nó como cliente do seu predecessor
 
     node sucessor;    //informação das ligações
     node predecessor; //informação das ligações
@@ -67,5 +67,8 @@ void user_input( conect_inf* data);
 
 void create_TCP_server(conect_inf* data);
 
+int direct_join(conect_inf* data);
+
+int add_client(conect_inf* data);
 
 #endif // MAIN_H
