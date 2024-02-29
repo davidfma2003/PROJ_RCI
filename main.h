@@ -5,12 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "user_interface.h"
-
+#include <stdbool.h>
+#include <sys/select.h>
 
 
 // Function declarations or prototypes
 
 int main(int argc, char *argv[]);
-void limparBuffer();
 
 #endif // MAIN_H

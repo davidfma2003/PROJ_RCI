@@ -1,6 +1,6 @@
 #include "main.h"
 
-
+///grupo 51
 
 
 int main(int argc, char *argv[]){
@@ -9,7 +9,11 @@ int main(int argc, char *argv[]){
     strcpy(inicial_inf.reg_UDP,"59000");
     char input[300] ;
     char ring[10],id[10];
-    int ret=-1;
+    char* id_i;
+    bool server_join=false;
+    ring[0]='\0';
+    id[0]='\0';
+
     if (argc!=3 && argc!=5){
         printf("Número de argumentos de inicialição do programa incoerentes\n");
         exit(0);
@@ -26,13 +30,19 @@ int main(int argc, char *argv[]){
     }
 
     while (1){
+
+        select
+
+
+
+
         printf("Digite:");
         fgets(input, 299, stdin);
         if(input[0]=='x'){
             printf("Fecho da aplicação\n");
             exit(0);
         }
-        else if(input[0]=='j'){
+        else if(input[0]=='j' && input[1]==' '){
             sscanf(input,"%*s %s %s",ring,id);
             if (atoi(ring)<0 || atoi(ring)>999 || strlen(ring)!=3){
                 printf("Valor de ring inválido (necessaŕio 3 digitos)\nPor favor tente novamente\n");
@@ -41,9 +51,27 @@ int main(int argc, char *argv[]){
                 printf("Valor de id inválido (necessário 2 digitos)\nPor favor tente novamente\n");
             }
             else{
-                ret=join(&inicial_inf,ring,id);
-                if (ret!=-1)
-                printf("Valor de id indisponivél no servidor\n Entrou com o valor de id %d\n",ret);
+                id_i=join(&inicial_inf,ring,id);
+                if (id_i==NULL)
+                {
+                    printf("Não foi possível juntar ao servidor\n");
+                    continue;
+                }
+                server_join=true;
+
+            }
+        }
+        else if (input[0]=='l'){
+            if(server_join){
+                if (leave(&inicial_inf,ring,id)==0){
+                    server_join=false;
+                    printf("Nó retirado do servidor com sucesso\n");
+                }
+                else
+                printf("Não é possível conectar com o servidor\n");
+            }
+            else{
+                printf("Não é possível sair do servidor sem lá estar\n");
             }
         }
         else{
@@ -53,7 +81,3 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-void limparBuffer() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-}

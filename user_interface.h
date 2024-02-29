@@ -12,13 +12,23 @@
 #include <netdb.h>
 #include <unistd.h>
 
+typedef struct _node{
+    char reg_IP[30];
+    char reg_UDP[30];
+    char* TCP;
+    char* IP;
+}node;
+
 typedef struct IP_s{
     char reg_IP[30];
     char reg_UDP[30];
     char* TCP;
-    char*IP;
+    char* IP;
+    node connection;
 }conect_inf;
 
-int join(conect_inf*inicial_inf,char* ring,char* id);
 
+
+char* join(conect_inf*inicial_inf,char* ring,char* id);
+int leave(conect_inf*inicial_inf,char* ring,char* id);
 #endif // MAIN_H
