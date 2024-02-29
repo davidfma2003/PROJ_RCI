@@ -24,6 +24,7 @@ typedef struct IP_s{
     char reg_UDP[30];
     char* TCP;
     char* IP;
+    
     node connection;
 }conect_inf;
 

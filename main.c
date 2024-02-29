@@ -4,6 +4,30 @@
 
 
 int main(int argc, char *argv[]){
+
+    fd_set* descriptors;
+
+    FD_SET(0,descriptors);
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     conect_inf inicial_inf;
     strcpy(inicial_inf.reg_IP,"193.136.138.142");
     strcpy(inicial_inf.reg_UDP,"59000");
@@ -32,10 +56,6 @@ int main(int argc, char *argv[]){
     while (1){
 
         select
-
-
-
-
         printf("Digite:");
         fgets(input, 299, stdin);
         if(input[0]=='x'){
