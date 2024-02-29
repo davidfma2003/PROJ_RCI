@@ -29,24 +29,21 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
-
-
-
     create_TCP_server(&data);
     printf("Servidor TCP criado\n");
 
 
     fd_set rfds;
-    FD_ZERO(&rfds);
+    FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
     FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
     FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto     
     
-    int maxfd=data.host_info.fd;
- 
+    int maxfd=data.host_info.fd;    // valor do descritor mais alto
     while (1)
     {
-        printf("Digite:");
-        int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);
+        
+        printf("Digite:\n");
+        int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
         if (counter==-1){
             printf("Erro no select\n");
             exit(0);
@@ -68,36 +65,15 @@ int main(int argc, char *argv[]){
 
     }
 
-/*
-    while (1)
-    {
-        counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);
-        if (counter==-1){
-            printf("Erro no select\n");
-            exit(0);
-        }
-        else if (counter==0){
-            printf("Timeout\n");
-            exit(0);
-        }
-        else{
-            if (FD_ISSET(0,&rfds)){
-                printf("User Input\n");
-            }
-            if (FD_ISSET(data.host_info.fd,&rfds)){
-                printf("Message\n");
-            }
-        }
 
-    }*/
     return 0;
 }
 
 void user_input( conect_inf* data){
     char input[300] ;
+    char id_buff[10];
     char* id_i;
     
-    printf("Digite:");
     fgets(input, 299, stdin);
     
     if(input[0]=='x'){
@@ -108,7 +84,14 @@ void user_input( conect_inf* data){
     }
 
     else if(input[0]=='j' && input[1]==' '){
-        sscanf(input,"%*s %s %s",data->ring,data->id);
+        sscanf(input,"%*s %s %s",data->ring,id_buff);
+        if (data->id[0]!='\0' && strcmp(id_buff,data->id)!=0){
+            printf("Está se a tentar resgistar num anel com um id diferente do que se registou na ligação com outro nó\n");
+            return;
+        }
+        else{
+            strcpy(data->id,id_buff);
+        }
         if (atoi(data->ring)<0 || atoi(data->ring)>999 || strlen(data->ring)!=3){
             printf("Valor de ring inválido (necessaŕio 3 digitos)\nPor favor tente novamente\n");
         }
@@ -138,6 +121,15 @@ void user_input( conect_inf* data){
         else{
             printf("Não é possível sair do servidor sem lá estar\n");
         }
+    }
+    else if (input[0]=='d' && input[1]=='j'){
+        sscanf(input,"%*s %s",id_buff);
+        if (strcmp(data->id,id_buff)==0){
+            printf("Não é possível registar um nó com o mesmo id que o nó atual\n");
+            return;
+        }
+        sscanf(input,"%*s %*s %s %s %s",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
+        
     }
     else{
         printf("Input iválido\nPor favor tente novamente\n");

@@ -43,14 +43,15 @@ typedef struct IP_s{
     char reg_IP[30];    //IP servidor de nós do anel
     char reg_UDP[30];   //porto servidor de nós do anel
 
+
     char ring[10];
     char id[10];
     bool server_join;
 
-
     
 
     TCP_server host_info;   //informação do servidor TCP
+
 
     node sucessor;    //informação das ligações
     node predecessor; //informação das ligações
