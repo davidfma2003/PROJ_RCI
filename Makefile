@@ -1,11 +1,11 @@
 
 #Makefile COR
-CFLAGS  = -Wall -pedantic -g -pthread -lpthread
+CFLAGS  = -Wall -pedantic -g
 
 default: all
 
 all:main.o user_interface.o
-	gcc $(CFLAGS) -o COR main.o user_interface.o -lgd
+	gcc $(CFLAGS) -o COR main.o user_interface.o
 
 main.o: main.c main.h 
 	gcc  $(CFLAGS) -c main.c
