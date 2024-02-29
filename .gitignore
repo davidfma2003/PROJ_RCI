@@ -3,3 +3,5 @@
 
 # Ignore cor files
 COR
+
+/.vscode

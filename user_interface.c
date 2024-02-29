@@ -90,3 +90,32 @@ int leave(conect_inf*inicial_inf,char* ring,char* id){
     }
     close(fd); 
 }
+
+void create_TCP_server(conect_inf* data){
+    int errcode;
+    ssize_t n;
+
+
+    data->host_info.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
+    if (data->host_info.fd==-1) exit(1); //error
+
+
+    memset(&data->host_info.hints,0,sizeof(data->host_info.hints));
+    data->host_info.hints.ai_family=AF_INET; //IPv4
+    data->host_info.hints.ai_socktype=SOCK_STREAM; //TCP socket
+    data->host_info.hints.ai_flags=AI_PASSIVE;
+
+
+    errcode=getaddrinfo(NULL,data->TCP,&data->host_info.hints,&data->host_info.res);
+    if((errcode)!=0)/*error*/exit(1);
+    
+    
+    
+    
+    n=bind(data->host_info.fd,data->host_info.res->ai_addr,data->host_info.res->ai_addrlen);
+    if(n==-1) /*error*/ exit(1);
+
+
+    if(listen(data->host_info.fd,5)==-1)/*error*/exit(1);
+    return;
+}

@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include <sys/select.h>
 
-
 // Function declarations or prototypes
 
 int main(int argc, char *argv[]);
