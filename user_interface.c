@@ -140,8 +140,9 @@ int direct_join(conect_inf* data){
     n=connect(data->client_info.fd,data->client_info.res->ai_addr,data->client_info.res->ai_addrlen);
     if(n==-1)/*error*/exit(1);
     
-    sscanf(input,"ENTRY %s %s %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
-    n=write(data->sucessor.TCP.fd,input,strlen(input));
+    sprintf(input,"ENTRY %s %s %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
+    printf("%s",input);
+    n=write(data->client_info.fd,input,strlen(input)+1);
     if(n==-1)/*error*/exit(1);
     
     
@@ -168,15 +169,10 @@ int add_client(conect_inf* data){
     if((newfd=accept(data->host_info.fd,(struct sockaddr*) &data->host_info.addr,&data->host_info.addrlen))==-1)/*error*/ exit(1);
     
     n=read(newfd,buffer,128);   //receber msg com informação dele
-    if(n==-1)/*error*/exit(1);
-    buffer[n]='\0';
-    
-    //reencaminhar mensagem para o meu predecessor
     printf("%s\n",buffer);
-    
-
-
-
+    if(n==-1) exit(1);   //error
+  
+  
 
 
 
@@ -191,6 +187,7 @@ int add_client(conect_inf* data){
     
     n=write(data->predecessor.TCP.fd,buffer,n);
     if(n==-1)error*///exit(1);
-    
+    close(newfd);
+
     return 0;
 }
