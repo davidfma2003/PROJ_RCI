@@ -10,6 +10,7 @@ int main(int argc, char *argv[]){
     strcpy(data.reg_IP,"193.136.138.142");
     strcpy(data.reg_UDP,"59000");
     data.sucessor.ID[0]='\0';
+    data.predecessor.ID[0]='\0';
 
 
     data.server_join=false;
@@ -33,18 +34,23 @@ int main(int argc, char *argv[]){
 
     create_TCP_server(&data);
     printf("Servidor TCP criado\n");
-
+    
 
     fd_set rfds;
-    FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
-    FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
-    FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto     
+
     
+    
+
     int maxfd=data.host_info.fd;    // valor do descritor mais alto
     while (1)
     {
         
         printf("Digite:\n");
+        
+        FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
+        FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
+        FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto     
+        
         int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
         if (counter==-1){
             printf("Erro no select\n");
@@ -61,12 +67,70 @@ int main(int argc, char *argv[]){
                 
             }
             if (FD_ISSET(data.host_info.fd,&rfds)){
-                printf("New predecessor\n");
-                add_client(&data);
+                printf("New connection\n");
+                if (add_client(&data)==0)
+                {
+                    break;
+                }
             }
         }
 
     }
+
+    FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
+    FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
+    FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto
+
+    if (data.host_info.fd>data.client_info.fd){
+        maxfd=data.host_info.fd;
+    }else{
+        maxfd=data.client_info.fd;
+    }
+    
+    while (1)
+    {
+        
+        printf("Digite:\n");
+        
+        FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
+        FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
+        FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto     
+        FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+        
+        int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
+        if (counter==-1){
+            printf("Erro no select\n");
+            exit(0);
+        }
+        else if (counter==0){
+            printf("Timeout\n");
+            exit(0);
+        }
+        else{
+            if (FD_ISSET(0,&rfds)){
+                printf("User Input\n");
+                user_input(&data);
+                
+            }
+            if (FD_ISSET(data.host_info.fd,&rfds)){
+                printf("New connection\n");
+
+
+                
+                
+                add_client(&data);
+            }
+            if (FD_ISSET(data.client_info.fd,&rfds)){
+                printf("Message received from host\n");
+
+            }
+            
+        }
+
+    }
+    
+
+
     return 0;
 }
 
@@ -107,7 +171,6 @@ void user_input( conect_inf* data){
                 return;
             }
             data->server_join=true;
-
         }
     }
     else if (input[0]=='l'){
@@ -141,11 +204,27 @@ void user_input( conect_inf* data){
         else if (atoi(data->sucessor.PORT)<=0){
             printf("Valor de porto do sucessor inválido\nPor favor tente novamente\n");
         }
+        else if (strcmp(data->sucessor.ID,data->id)==0){    //inicio de anel
+            printf("Início de um novo anel\n");
+            strcpy(data->predecessor.ID,data->id);
+            strcpy(data->predecessor.IP,data->IP);
+            strcpy(data->predecessor.PORT,data->TCP);
+            strcpy(data->sucessor.IP,data->IP);
+            strcpy(data->sucessor.PORT,data->TCP);
+            strcpy(data->secsuccessor.ID,data->id);
+            strcpy(data->secsuccessor.IP,data->IP);
+            strcpy(data->secsuccessor.PORT,data->TCP);
+        }
         else{
             direct_join(data);
             return;
         }
-        data->sucessor.ID[0]='\0';
+    }
+    else if(input[0]=='s' && input[1]=='t'){
+        printf("Nó atual:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->id,data->IP,data->TCP);
+        printf("Predecessor:\n\tid: %s\n",data->predecessor.ID);
+        printf("Sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
+        printf("Segundo sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
     }
     else{
         printf("Input inválido\nPor favor tente novamente\n");
