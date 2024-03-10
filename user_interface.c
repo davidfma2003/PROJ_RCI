@@ -65,6 +65,7 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
         else{
             printf("Nó registado com o id %s.\n",id_i);
             strcpy(id,id_i);
+            strcpy(inicial_inf->id,id_i);
             strcpy(inicial_inf->predecessor.ID,id);
             strcpy(inicial_inf->sucessor.ID,id);
             strcpy(inicial_inf->sucessor.IP,inicial_inf->IP);
@@ -105,6 +106,7 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
         if (strcmp(id,id_i)!=0) printf("Já existia um nó registado com o id %s\n",id);
         printf("Nó registado com o id %s.\n",id_i);
         printf("nó Registado em servidor que não está vazio\n");
+        strcpy(inicial_inf->id,id_i);
         strcpy(inicial_inf->sucessor.ID,temp_id);
         strcpy(inicial_inf->sucessor.IP,temp_IP);
         strcpy(inicial_inf->sucessor.PORT,temp_TCP);
@@ -188,6 +190,7 @@ int direct_join(conect_inf* data){
     char input[300];
     int errcode;
     ssize_t n;
+    char buffer[128];
 
     //Iniciar ligação TCP como cliente do nó a que me quero juntar através do seu endereço IP e porta TCP que foi dada como input
     data->client_info.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket    //SOCKET ONDE SE RECEBEM E ENVIAM MENSAGENS NESTE NÓ
@@ -222,23 +225,10 @@ int direct_join(conect_inf* data){
     //Esperar por resposta do nó a que me quero juntar que irá conter a informação do meu segundo sucessor (SUCC k k.IP k.TCP\n)
 #ifdef DEBUG    
     printf("DEBUG: À espera que o sucessor confirme que aceitou e da mensagem com a informação do segundo sucessor\n");
-
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(data->client_info.fd, &read_fds);
-
-    int ready = select(data->client_info.fd + 1, &read_fds, NULL, NULL, NULL);  
-    if (ready < 0) {
-        perror("Error in select");
-        exit(EXIT_FAILURE);
-    }
-    else if (FD_ISSET(data->client_info.fd, &read_fds)) {    //quando chegar a resposta, i.e. o descritor foi alterado
-        n=read(data->client_info.fd, resp, sizeof(resp));
-        printf("DEBUG: Conexão estabelecida. recebido do sucessor a seguinte mensagem: %s\n", resp);
-        
-    }
-#elif
+#endif
     n=read(data->client_info.fd, resp, sizeof(resp));
+#ifdef DEBUG  
+    printf("DEBUG: Conexão estabelecida. recebido do sucessor a seguinte mensagem: %s\n", resp);
 #endif
 
     //Verificar se a resposta é a esperada e atualizar informaçaõ do segundo sucessor caso seja, anular tudo caso não seja e enviar mensagem de erro
@@ -271,12 +261,12 @@ int direct_join(conect_inf* data){
 
 
     //Esperar por mensagem de protocolo do meu futuro predecessor que contém a sua informação (PRED i\n)
-#ifdef DEBUG
+/*#ifdef DEBUG
     printf("DEBUG: Socket criado. À espera de mensagem do meu futuro predecessor\n");
     FD_ZERO(&read_fds);
     FD_SET(new_predecessor_fd, &read_fds);
 
-    char buffer[128];
+    
     ready = select(new_predecessor_fd + 1, &read_fds, NULL, NULL, NULL);
     if (ready < 0) {
         perror("Error in select");
@@ -289,9 +279,13 @@ int direct_join(conect_inf* data){
         printf("DEBUG: Recebido no novo socket a seguinte mensagem: %s\n", buffer);
     }
 #elif
+    
+#endif*/
+#ifdef DEBUG
+    printf("DEBUG: Socket criado. À espera de mensagem do meu futuro predecessor\n");
+#endif
     n=read(new_predecessor_fd,buffer,128);   //receber msg com informação dele (PRED i\n)
     if(n==-1) exit(1);   //error
-#endif
     //extrair parte da mensagem para comparar ("PRED") e confirmar que é a mensagem esperada
     sscanf(buffer,"%s",resp_cmp);
     if (strcmp(resp_cmp,"PRED")!=0){
@@ -376,7 +370,7 @@ int add_client(conect_inf* data){
         n=write(futurefd,input,strlen(input)+1); 
         if(n==-1) exit(1); //error 
     #ifdef DEBUG      
-        printf("Enviada mensagem de protocolo para futurefd no caso em que só há 1 nó: %s\n",input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+        printf("DEBUG: Enviada mensagem de protocolo para futurefd no caso em que só há 1 nó: %s\n",input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
     #endif
 
         //Atualizar informação de predecessor
@@ -415,8 +409,9 @@ int add_client(conect_inf* data){
 
         n=write(data->predecessor.TCP.fd,input,strlen(input)+1); 
         if(n==-1) exit(1); //error    
-        printf("sent to my predecessor: %s",input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
-
+    #ifdef DEBUG
+        printf("Enviado ao meu predecessor: %s\n",input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+    #endif
         //atualizar predecessor
         data->predecessor.TCP.fd=futurefd;
         strcpy(data->predecessor.ID,tmpid);
@@ -427,9 +422,10 @@ int add_client(conect_inf* data){
         sprintf(buffer,"SUCC %s %s %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);   //enviar msg com informação do novo nó ao meu predecessor (ENTRY i i.IP i.TCP\n)
 
         n=write(data->predecessor.TCP.fd,buffer,strlen(input)+1); 
-        if(n==-1) exit(1); //error    
-        printf("sent to node to enter: %s",buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
-        printf("successor: %s\n",data->sucessor.ID);
+        if(n==-1) exit(1); //error   
+    #ifdef DEBUG
+        printf("Enviado ao nó %s que quer entrar a mensagem: %s\n",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+    #endif
     }
     return 0;
 }
@@ -488,8 +484,6 @@ void add_successor(conect_inf* data,char buffer[128]){
     char tmpIP[30];
     char tmpTCP[10];
 
-    
-
     //extrair parte da mensagem para comparar ("SUCC") e confirmar que é a mensagem esperada
     char resp_cmp[128];
     sprintf(resp_cmp,"%s",buffer);
@@ -525,7 +519,6 @@ void add_successor(conect_inf* data,char buffer[128]){
             sprintf(input,"PRED %s\n",data->id);
             n=write(data->client_info.fd,input,strlen(input)+1);
             if(n==-1)exit(1);  //error
-            printf("Enviado por client fd: %s",input);
 
         #ifdef DEBUG
             printf("DEBUG: Aberto socket com o meu novo sucessor, enviada a mensagem '%s' para o id %s\n",input,data->sucessor.ID);    
@@ -542,8 +535,9 @@ void add_successor(conect_inf* data,char buffer[128]){
             
             return;
     }else if (strcmp(resp_cmp,"SUCC")==0){  //Caso receba a mensagem SUCC tenho de atualizar o meu segundo sucessor
-        
-        printf("Received: %s\n", buffer);
+    #ifdef DEBUG
+        printf("DEBUG: Recebida a mensagem %s e por isso o nó da mensagem foi colocado como segundo sucessor\n", buffer);
+    #endif
         sscanf(buffer,"%*s %s %s %s",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
     }
     else{
@@ -553,9 +547,6 @@ void add_successor(conect_inf* data,char buffer[128]){
     return;
 
 }
-
-
-
 
 int leave_ring(conect_inf* data){
     //quando um nó sai do anel:
@@ -610,7 +601,7 @@ void pred_reconnect(conect_inf* data,char buffer[128]){
     n=read(futurefd,buffer,128);   //receber msg com informação dele (PRED \n)
     if(n==-1) exit(1);   //error
 #ifdef DEBUG
-    printf("Pedido de conexão recebido em futurefd do nó %s com a mensagem: %s\n", data->id, buffer);   //mostrar msg recebida (ENTRY i i.IP i.TCP\n)
+    printf("DEBUG: Pedido de conexão recebido em futurefd do nó %s com a mensagem: %s\n", data->id, buffer);   //mostrar msg recebida (ENTRY i i.IP i.TCP\n)
 #endif    
 
 
