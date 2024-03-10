@@ -12,7 +12,6 @@ int main(int argc, char *argv[]){
     data.sucessor.ID[0]='\0';
     data.predecessor.ID[0]='\0';
 
-
     data.server_join=false;
     data.ring[0]='\0';
     data.id[0]='\0';
@@ -33,106 +32,156 @@ int main(int argc, char *argv[]){
     }
 
     create_TCP_server(&data);
-    printf("Servidor TCP criado\n");
     
+#ifdef DEBUG
+    printf("DEBUG: Servidor TCP criado\n");
+#endif
 
     fd_set rfds;
-
-    
-    
-
-    int maxfd=data.host_info.fd;    // valor do descritor mais alto
+    int maxfd;
+    int counter;
     while (1)
     {
-        
-        printf("Digite:\n");
-        
-        FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
-        FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
-        FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto     
-        
-        int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
-        if (counter==-1){
-            printf("Erro no select\n");
-            exit(0);
-        }
-        else if (counter==0){
-            printf("Timeout\n");
-            exit(0);
-        }
-        else{
-            if (FD_ISSET(0,&rfds)){
-                printf("User Input\n");
-                user_input(&data);
-                
+        if ((data.id[0]=='\0') || (strcmp(data.id,data.sucessor.ID)==0))
+        {
+            maxfd=data.host_info.fd;    // valor do descritor mais alto
+            printf("Digite:\n");
+            
+            FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
+            FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
+            FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto                 
+
+            counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
+            if (counter==-1){
+                printf("Erro no select\n");
+                exit(0);
             }
-            if (FD_ISSET(data.host_info.fd,&rfds)){
-                printf("New connection\n");
-                if (add_client(&data)==0)
-                {
-                    break;
+            else if (counter==0){
+                printf("Timeout\n");
+                exit(0);
+            }
+            else{
+                if (FD_ISSET(0,&rfds)){
+                #ifdef DEBUG
+                    printf("User Input\n");
+                #endif  
+                    user_input(&data);
+                    
+                }
+                if (FD_ISSET(data.host_info.fd,&rfds)){
+                #ifdef DEBUG
+                    printf("New connection\n");
+                #endif
+                    add_client(&data);
+                }
+            }
+        }else{
+            printf("Digite:\n");
+            
+            FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
+            FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
+            FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto     
+            FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+            FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+            if (data.host_info.fd>data.client_info.fd && data.host_info.fd>data.predecessor.TCP.fd){
+                maxfd=data.host_info.fd;
+            }else if(data.client_info.fd>data.host_info.fd && data.client_info.fd>data.predecessor.TCP.fd){
+                maxfd=data.client_info.fd;
+            }
+            else{
+                maxfd=data.predecessor.TCP.fd;
+            }
+
+            int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
+            if (counter==-1){
+                printf("Erro no select\n");
+                exit(0);
+            }
+            else if (counter==0){
+                printf("Timeout\n");
+                exit(0);
+            }
+            else{
+                if (FD_ISSET(0,&rfds)){
+                #ifdef DEBUG
+                    printf("User Input\n");
+                #endif
+                    user_input(&data);
+                    continue;
+                }
+                if (FD_ISSET(data.host_info.fd,&rfds)){
+                #ifdef DEBUG
+                    printf("New connection\n");
+                #endif
+                    add_client(&data);
+                    continue;
+                }
+                if (FD_ISSET(data.client_info.fd,&rfds)){
+                #ifdef DEBUG
+                    printf("Message received from sucessor\n");
+                #endif
+                    char buffer[128];
+                    ssize_t n;
+                    n=read(data.client_info.fd,buffer,128);
+                    if(n==-1) exit(1);   
+                    else if (n==0)   
+                    {  
+                    #ifdef DEBUG
+                        printf("DEBUG: Sucessor disconnected\n");
+                    #endif
+                        suc_reconnect(&data,buffer);
+                        continue;
+                    }else if (strstr(buffer,"ENTRY")){
+                        add_successor(&data,buffer);
+                        continue;
+                    }else if (strstr(buffer,"SUCC")){
+                    #ifdef DEBUG
+                        printf("DEBUG: Buffer do main: %s\n",buffer);
+                    #endif
+                        add_successor(&data,buffer);
+                        continue;
+                    }else if (strstr(buffer,"CHAT")){
+                        continue;
+                    }else if(strstr(buffer,"ROUTE")){
+                        continue;
+                    }
+                                
+                }
+                if (FD_ISSET(data.predecessor.TCP.fd,&rfds)){
+                #ifdef DEBUG
+                    printf("Message received from predecessor\n");
+                #endif
+                    char buffer[128];
+                    ssize_t n;
+                    n=read(data.predecessor.TCP.fd,buffer,128);
+                    if(n==-1) exit(1);   
+                    else if (n==0)   
+                    {  
+                    #ifdef DEBUG
+                        printf("DEBUG: predecessor disconnected\n");
+                    #endif
+                        pred_reconnect(&data,buffer);
+                        continue;
+                    }else if (strstr(buffer,"ENTRY")){
+                        add_successor(&data,buffer);
+                        continue;
+                    }else if (strstr(buffer,"SUCC")){
+                        add_successor(&data,buffer);
+                        continue;
+                    }else if (strstr(buffer,"CHAT")){
+                        continue;
+                    }else if(strstr(buffer,"ROUTE")){
+                        continue;
+                    }
+                
+                    
                 }
             }
         }
-
     }
-
-    FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
-    FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
-    FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket UDP) ao conjunto
-
-    if (data.host_info.fd>data.client_info.fd){
-        maxfd=data.host_info.fd;
-    }else{
-        maxfd=data.client_info.fd;
-    }
-    
-    while (1)
-    {
-        
-        printf("Digite:\n");
-        
-        FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
-        FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
-        FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto     
-        FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
-        
-        int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
-        if (counter==-1){
-            printf("Erro no select\n");
-            exit(0);
-        }
-        else if (counter==0){
-            printf("Timeout\n");
-            exit(0);
-        }
-        else{
-            if (FD_ISSET(0,&rfds)){
-                printf("User Input\n");
-                user_input(&data);
-                
-            }
-            if (FD_ISSET(data.host_info.fd,&rfds)){
-                printf("New connection\n");
-
-
-                
-                
-                add_client(&data);
-            }
-            if (FD_ISSET(data.client_info.fd,&rfds)){
-                printf("Message received from host\n");
-
-            }
-            
-        }
-
-    }
-    
-
-
     return 0;
 }
+
 
 void user_input( conect_inf* data){
     char input[300] ;
@@ -171,6 +220,7 @@ void user_input( conect_inf* data){
                 return;
             }
             data->server_join=true;
+            
         }
     }
     else if (input[0]=='l'){
@@ -185,6 +235,13 @@ void user_input( conect_inf* data){
         else{
             printf("Não é possível sair do servidor sem lá estar\n");
         }
+        if(leave_ring(data)==1){
+            printf("Nó saiu do anel com sucesso\n");
+        }
+        else{
+            printf("Nó nao retirado do anel\n");
+        }
+        
     }
     else if (input[0]=='d' && input[1]=='j'){
         sscanf(input,"%*s %s",id_buff);
@@ -226,9 +283,13 @@ void user_input( conect_inf* data){
         printf("Sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
         printf("Segundo sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
     }
+    else if(input[0]=='r'){
+        char temop[10];
+        sscanf(input,"%*s %s",temop);
+        rmv(data,temop);
+    }
     else{
         printf("Input inválido\nPor favor tente novamente\n");
     }
     return;
 }
-
