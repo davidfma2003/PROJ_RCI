@@ -258,29 +258,6 @@ int direct_join(conect_inf* data){
     int new_predecessor_fd;  //criar descritor temporário para novo cliente e aceitar a conexão
     data->host_info.addrlen=sizeof(data->host_info.addr);
     if((new_predecessor_fd=accept(data->host_info.fd,(struct sockaddr*) &data->host_info.addr,&data->host_info.addrlen))==-1)/*error*/ exit(1);
-
-
-    //Esperar por mensagem de protocolo do meu futuro predecessor que contém a sua informação (PRED i\n)
-/*#ifdef DEBUG
-    printf("DEBUG: Socket criado. À espera de mensagem do meu futuro predecessor\n");
-    FD_ZERO(&read_fds);
-    FD_SET(new_predecessor_fd, &read_fds);
-
-    
-    ready = select(new_predecessor_fd + 1, &read_fds, NULL, NULL, NULL);
-    if (ready < 0) {
-        perror("Error in select");
-        exit(EXIT_FAILURE);
-    }
-
-    if (FD_ISSET(new_predecessor_fd, &read_fds)) {
-        n=read(new_predecessor_fd,buffer,128);   //receber msg com informação dele (PRED i\n)
-        if(n==-1) exit(1);   //error
-        printf("DEBUG: Recebido no novo socket a seguinte mensagem: %s\n", buffer);
-    }
-#elif
-    
-#endif*/
 #ifdef DEBUG
     printf("DEBUG: Socket criado. À espera de mensagem do meu futuro predecessor\n");
 #endif
