@@ -14,6 +14,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <errno.h>
+#define DEBUG 1
 
 
 #define CONNECTION_TIMEOUT_SECONDS 6

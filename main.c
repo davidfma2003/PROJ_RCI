@@ -144,6 +144,8 @@ int main(int argc, char *argv[]){
                         continue;
                     }else if(strstr(buffer,"ROUTE")){
                         continue;
+                    }else if(strstr(buffer,"CHORD")){
+                        continue;
                     }
                                 
                 }
@@ -172,9 +174,9 @@ int main(int argc, char *argv[]){
                         continue;
                     }else if(strstr(buffer,"ROUTE")){
                         continue;
+                    }else if(strstr(buffer,"CHORD")){
+                        continue;
                     }
-                
-                    
                 }
             }
         }
