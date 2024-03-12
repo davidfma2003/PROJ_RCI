@@ -15,6 +15,7 @@ int main(int argc, char *argv[]){
     data.server_join=false;
     data.ring[0]='\0';
     data.id[0]='\0';
+    
 
     if (argc!=3 && argc!=5){
         printf("Número de argumentos de inicialição do programa incoerentes\n");

@@ -14,6 +14,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <ctype.h>
 #define DEBUG 1
 
 
@@ -63,6 +64,9 @@ typedef struct IP_s{
     node predecessor; //informação das ligações
     node secsuccessor;    //informação das ligações com 2o sucessor
     node chords;
+    char *tb_encaminhamento[100][100];
+    char tb_exped[100][3];
+    char *tb_caminhos_curtos[100];
 
 
 }conect_inf;
@@ -88,4 +92,13 @@ int leave_ring(conect_inf* data);
 void pred_reconnect(conect_inf* data, char buffer[128]);
 void suc_reconnect(conect_inf* data, char buffer[128]);
 
+void alloc_tabs(conect_inf* data);
+
+void init_tabs(conect_inf* data);
+void free_tabs(conect_inf* data);
+void add_adj(conect_inf*data,int pos);
+void rmv_adj(conect_inf*data,int pos);
+void refresh_caminho_mais_curto(conect_inf*data,int linha);
+int contar_nos_no_caminho(char *str);
+void chamada_route(conect_inf*data,char*mensagem);
 #endif // MAIN_H
