@@ -73,6 +73,7 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
             strcpy(inicial_inf->secsuccessor.ID,id);
             strcpy(inicial_inf->secsuccessor.IP,inicial_inf->IP);
             strcpy(inicial_inf->secsuccessor.PORT,inicial_inf->TCP);
+            init_tabs(inicial_inf);
         }
     }else{
     #ifdef DEBUG
@@ -191,6 +192,9 @@ int direct_join(conect_inf* data){
     int errcode;
     ssize_t n;
     char buffer[128];
+
+
+    init_tabs(data);
 
     //Iniciar ligação TCP como cliente do nó a que me quero juntar através do seu endereço IP e porta TCP que foi dada como input
     data->client_info.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket    //SOCKET ONDE SE RECEBEM E ENVIAM MENSAGENS NESTE NÓ
@@ -542,7 +546,6 @@ int leave_ring(conect_inf* data){
     data->sucessor.PORT[0]='\0';
     data->predecessor.ID[0]='\0';
     data->id[0]='\0';
-
 #ifdef DEBUG
     printf("DEBUG: Fechadas as comunicações com sucessor e predecessor e resetados todos os parâmetros");
 #endif
@@ -719,7 +722,7 @@ void init_tabs(conect_inf* data){
     for (int i=0;i<=99;i++){
             sprintf(data->tb_exped[i],"-");
     }
-    sprintf(data->tb_caminhos_curtos[atoi(data->id)],"%s",data->id);   /// deternima-se a si próprio como caminho masis curto
+    sprintf(data->tb_caminhos_curtos[atoi(data->id)],"%d",atoi(data->id));   /// deternima-se a si próprio como caminho masis curto
     return;
 }
 
@@ -727,6 +730,14 @@ void add_adj(conect_inf*data,int pos){
     char adj[10];
     char buffer[200];
     int i=0,n,fd;
+
+
+    if (strcmp(data->id,data->sucessor.ID)==0)
+    {
+        return;
+    }
+    
+
     if (pos==1){ 
         strcpy(adj,data->predecessor.ID);   ///determina se a adajacencia foi de um predecessor sucessor ou corda
         fd=data->predecessor.TCP.fd;
@@ -759,6 +770,7 @@ void rmv_adj(conect_inf*data,int adj){
         strcpy(data->tb_encaminhamento[i][adj],"-");
         if (strlen(data->tb_caminhos_curtos[i])>2 && strstr(buffer,data->tb_caminhos_curtos[i])!=NULL ){                 /// tem um caminho que não ele proprio
             refresh_caminho_mais_curto(data,i);
+            
         }
     }
 }
@@ -766,6 +778,9 @@ void rmv_adj(conect_inf*data,int adj){
 void refresh_caminho_mais_curto(conect_inf*data,int linha){
     int tam_caminho,menor=-1,tam_menor=200,n;
     char buffer[200];
+    if (linha==atoi(data->id)){
+        return;
+    }
     for (int i=0;i<=99;i++){
         tam_caminho=contar_nos_no_caminho(data->tb_encaminhamento[linha][i]);
         if (tam_caminho>0 && tam_caminho<tam_menor){
@@ -779,31 +794,39 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
         strcpy(data->tb_exped[linha],"-");
         sprintf(buffer,"ROUTE %d %d",atoi(data->id),linha);
     }
-    else if(contar_nos_no_caminho(data->tb_encaminhamento[linha][menor])==contar_nos_no_caminho(data->tb_caminhos_curtos[linha])){
+    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[linha])==tam_menor){
         return;
     }
-    else {
+    else{
         strcpy(data->tb_caminhos_curtos[linha],data->tb_encaminhamento[linha][menor]);
-        if (tam_menor==2)
-        sscanf(data->tb_caminhos_curtos[linha],"%*d-%s",data->tb_exped[linha]); 
-        else
-        sscanf(data->tb_caminhos_curtos[linha],"%*d-%s-%*s",data->tb_exped[linha]); 
+        if (tam_menor==2){
+            sscanf(data->tb_caminhos_curtos[linha],"%*d-%s",data->tb_exped[linha]); 
+        }
+        else{
+            sscanf(data->tb_caminhos_curtos[linha],"%*d-%s-%*s",data->tb_exped[linha]); 
+        }
         sprintf(buffer,"ROUTE %d %d %s",atoi(data->id),linha,data->tb_caminhos_curtos[linha]);
+    #ifdef DEBUG
+        printf("DEBUG: Atualizado caminho mais curto\n");
+    #endif
     }
-    if(strlen(data->sucessor.ID)!=0){
+
+
+    if(strcmp(data->sucessor.ID,data->id)!=0){
         n=write(data->client_info.fd,buffer,strlen(buffer)+1); 
             if(n==-1) exit(1); //error    
             #ifdef DEBUG
-                printf("DEBUG: Enviado ao meu adjacente com id %s a mensagem: %s",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+                printf("DEBUG: Enviado ao meu adjacente (sucessor) com id %s a mensagem: %s\n",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
             #endif
     }
-    if(strlen(data->predecessor.ID)!=0){
+    if(strcmp(data->predecessor.ID,data->id)!=0){
         n=write(data->predecessor.TCP.fd,buffer,strlen(buffer)+1); 
             if(n==-1) exit(1); //error    
             #ifdef DEBUG
-                printf("DEBUG: Enviado ao meu adjacente com id %s a mensagem: %s",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+                printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
             #endif
     }
+
     /////
     ////FALTA PARA AS CORDAS
     /////
@@ -816,22 +839,28 @@ void chamada_route(conect_inf*data,char*mensagem){
     char buffer[120];
     char sequencia_com_tracos[100];
 
+#ifdef DEBUG
+    printf("DEBUG: Recebida a mensagem: %s na funcao da chamada route\n",mensagem);
+#endif
 
     int num_converted = sscanf(mensagem, "ROUTE %d %d %s", &partida, &destino, sequencia_com_tracos);
     sprintf(id,"-%d",atoi(data->id));
-    if (num_converted == 3) {
-        if (strstr(sequencia_com_tracos,id)){
+    //Verificar se trouxe caminho na mensagem ou saiu um nó
+    if (num_converted == 3) {   //se trouxer
+        //ver se o caminho é válido
+        if (strstr(sequencia_com_tracos,id)){   
             return;
         }
-        else{
+        else{   //atualizar tabela de encaminhamento e vai extrair o novo caminho mais curto
             sprintf(buffer,"%d-%s",atoi(data->id),sequencia_com_tracos);
             strcpy(data->tb_encaminhamento[destino][partida],buffer);
             refresh_caminho_mais_curto(data,destino);
         }
-    } else {
-        strcpy(data->tb_encaminhamento[destino][partida],"-");
-        refresh_caminho_mais_curto(data,destino);
+    } else {    //se não trouxer é saída de um nó
+        strcpy(data->tb_encaminhamento[destino][partida],"-");  //reset da tabela de encaminhamento
+        refresh_caminho_mais_curto(data,destino);   //atualizar caminhos mais curtos
     }
+    return;
 }
 
 

@@ -33,9 +33,10 @@ int main(int argc, char *argv[]){
     }
 
     create_TCP_server(&data);
-    
+    alloc_tabs(&data);
+
 #ifdef DEBUG
-    printf("DEBUG: Servidor TCP criado\n");
+    printf("DEBUG: Servidor TCP criado e memória alocada\n");
 #endif
 
     fd_set rfds;
@@ -74,6 +75,8 @@ int main(int argc, char *argv[]){
                     printf("New connection\n");
                 #endif
                     add_client(&data);
+                    add_adj(&data,1);
+                    add_adj(&data,2);
                 }
             }
         }else{
@@ -115,6 +118,8 @@ int main(int argc, char *argv[]){
                     printf("New connection\n");
                 #endif
                     add_client(&data);
+                    add_adj(&data,1);
+                    add_adj(&data,2);
                     continue;
                 }
                 if (FD_ISSET(data.client_info.fd,&rfds)){
@@ -130,10 +135,16 @@ int main(int argc, char *argv[]){
                     #ifdef DEBUG
                         printf("DEBUG: Sucessor disconnected\n");
                     #endif
+                        int aux=atoi(data.sucessor.ID);
                         suc_reconnect(&data,buffer);
+                        rmv_adj(&data,aux);
+                        add_adj(&data,2);
                         continue;
                     }else if (strstr(buffer,"ENTRY")){
+                        int aux=atoi(data.sucessor.ID);
                         add_successor(&data,buffer);
+                        rmv_adj(&data,aux);
+                        add_adj(&data,2);
                         continue;
                     }else if (strstr(buffer,"SUCC")){
                     #ifdef DEBUG
@@ -144,6 +155,7 @@ int main(int argc, char *argv[]){
                     }else if (strstr(buffer,"CHAT")){
                         continue;
                     }else if(strstr(buffer,"ROUTE")){
+                        chamada_route(&data,buffer);
                         continue;
                     }else if(strstr(buffer,"CHORD")){
                         continue;
@@ -163,10 +175,16 @@ int main(int argc, char *argv[]){
                     #ifdef DEBUG
                         printf("DEBUG: predecessor disconnected\n");
                     #endif
+                        int aux=atoi(data.predecessor.ID);
                         pred_reconnect(&data,buffer);
+                        rmv_adj(&data,aux);
+                        add_adj(&data,1);
                         continue;
                     }else if (strstr(buffer,"ENTRY")){
+                        int aux=atoi(data.predecessor.ID);
                         add_successor(&data,buffer);
+                        rmv_adj(&data,aux);
+                        add_adj(&data,1);
                         continue;
                     }else if (strstr(buffer,"SUCC")){
                         add_successor(&data,buffer);
@@ -197,6 +215,7 @@ void user_input( conect_inf* data){
         printf("Fecho da aplicação\n");
         freeaddrinfo(data->host_info.res);
         close(data->host_info.fd);
+        free_tabs(data);
         exit(0);
     }
 
@@ -217,6 +236,10 @@ void user_input( conect_inf* data){
         }
         else{
             id_i=join(data,data->ring,data->id);
+
+            add_adj(data,1);
+            add_adj(data,2);
+
             if (id_i==NULL)
             {
                 printf("Não foi possível juntar ao servidor\n");
@@ -277,6 +300,10 @@ void user_input( conect_inf* data){
         }
         else{
             direct_join(data);
+
+            add_adj(data,1);
+            add_adj(data,2);
+
             return;
         }
     }
@@ -290,6 +317,18 @@ void user_input( conect_inf* data){
         char temop[10];
         sscanf(input,"%*s %s",temop);
         rmv(data,temop);
+    }
+    else if(input[0]=='e'){
+        printf("Tabela de caminhos mais curtos:\n");
+        for (int i = 0; i < 100; i++)
+        {
+            if (data->tb_caminhos_curtos[i][0]!='-')
+            {
+                printf("%d: %s\n",i,data->tb_caminhos_curtos[i]);
+            }
+            
+        }
+        
     }
     else{
         printf("Input inválido\nPor favor tente novamente\n");
