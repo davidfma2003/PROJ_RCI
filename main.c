@@ -75,8 +75,10 @@ int main(int argc, char *argv[]){
                     printf("New connection\n");
                 #endif
                     add_client(&data);
+                    printf("\n1\n");
+                    usleep(250000);
                     add_adj(&data,1);
-                    add_adj(&data,2);
+                   /// add_adj(&data,2);
                 }
             }
         }else{
@@ -117,9 +119,11 @@ int main(int argc, char *argv[]){
                 #ifdef DEBUG
                     printf("New connection\n");
                 #endif
+                    int aux=atoi(data.predecessor.ID);
                     add_client(&data);
+                    usleep(250000);
+                    if (aux!=atoi(data.sucessor.ID))rmv_adj(&data,aux);
                     add_adj(&data,1);
-                    add_adj(&data,2);
                     continue;
                 }
                 if (FD_ISSET(data.client_info.fd,&rfds)){
@@ -127,6 +131,7 @@ int main(int argc, char *argv[]){
                     printf("Message received from sucessor\n");
                 #endif
                     char buffer[128];
+                    char buffer2[128];
                     ssize_t n;
                     n=read(data.client_info.fd,buffer,128);
                     if(n==-1) exit(1);   
@@ -143,7 +148,8 @@ int main(int argc, char *argv[]){
                     }else if (strstr(buffer,"ENTRY")){
                         int aux=atoi(data.sucessor.ID);
                         add_successor(&data,buffer);
-                        rmv_adj(&data,aux);
+                        usleep(250000);
+                        if (aux!=atoi(data.predecessor.ID))rmv_adj(&data,aux);
                         add_adj(&data,2);
                         continue;
                     }else if (strstr(buffer,"SUCC")){
@@ -151,11 +157,15 @@ int main(int argc, char *argv[]){
                         printf("DEBUG: Buffer do main: %s\n",buffer);
                     #endif
                         add_successor(&data,buffer);
+                        usleep(250000);
                         continue;
                     }else if (strstr(buffer,"CHAT")){
                         continue;
                     }else if(strstr(buffer,"ROUTE")){
                         chamada_route(&data,buffer);
+                        //sprintf(buffer2,"ROUTE %d %d %d",atoi(data.sucessor.ID),atoi(data.sucessor.ID),atoi(data.sucessor.ID));
+                        //if (strcmp(buffer2,buffer)==0)
+                          //  add_adj(&data,2);
                         continue;
                     }else if(strstr(buffer,"CHORD")){
                         continue;
@@ -183,15 +193,19 @@ int main(int argc, char *argv[]){
                     }else if (strstr(buffer,"ENTRY")){
                         int aux=atoi(data.predecessor.ID);
                         add_successor(&data,buffer);
-                        rmv_adj(&data,aux);
+                        usleep(250000);
+                        if (aux !=atoi(data.sucessor.ID))rmv_adj(&data,aux);
                         add_adj(&data,1);
                         continue;
                     }else if (strstr(buffer,"SUCC")){
                         add_successor(&data,buffer);
+                        usleep(250000);
                         continue;
                     }else if (strstr(buffer,"CHAT")){
                         continue;
                     }else if(strstr(buffer,"ROUTE")){
+                        chamada_route(&data,buffer);
+        
                         continue;
                     }else if(strstr(buffer,"CHORD")){
                         continue;

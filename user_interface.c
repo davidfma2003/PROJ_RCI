@@ -731,9 +731,10 @@ void add_adj(conect_inf*data,int pos){
     char buffer[200];
     int i=0,n,fd;
 
-
+    printf("entrou no add_adj\n");
     if (strcmp(data->id,data->sucessor.ID)==0)
     {
+        printf("entrou no return\n");
         return;
     }
     
