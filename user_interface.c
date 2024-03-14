@@ -725,8 +725,8 @@ void add_adj(conect_inf*data,int pos){
     }
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
-            sprintf(buffer,"ROUTE %d %d %s",atoi(data->id),i,data->tb_caminhos_curtos[i]);   
-            n=write(fd,buffer,strlen(buffer)+1); 
+            sprintf(buffer,"ROUTE %d %d %s\n",atoi(data->id),i,data->tb_caminhos_curtos[i]);   
+            n=write(fd,buffer,strlen(buffer)); 
             if(n==-1) exit(1); //error    
             #ifdef DEBUG
                 printf("DEBUG: Enviado ao meu adjacente %d com id %s a mensagem: %s\n",pos,adj,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
@@ -767,7 +767,7 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
     if (menor==-1){
         strcpy(data->tb_caminhos_curtos[linha],"-");
         strcpy(data->tb_exped[linha],"-");
-        sprintf(buffer,"ROUTE %d %d",atoi(data->id),linha);
+        sprintf(buffer,"ROUTE %d %d\n",atoi(data->id),linha);
     }
     else if(contar_nos_no_caminho(data->tb_caminhos_curtos[linha])==tam_menor){
         return;
@@ -780,7 +780,7 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
         else{
             sscanf(data->tb_caminhos_curtos[linha],"%*d-%s-%*s",data->tb_exped[linha]); 
         }
-        sprintf(buffer,"ROUTE %d %d %s",atoi(data->id),linha,data->tb_caminhos_curtos[linha]);
+        sprintf(buffer,"ROUTE %d %d %s\n",atoi(data->id),linha,data->tb_caminhos_curtos[linha]);
     #ifdef DEBUG
         printf("DEBUG: Atualizado caminho mais curto\n");
     #endif

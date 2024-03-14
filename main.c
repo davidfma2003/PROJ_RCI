@@ -160,7 +160,17 @@ int main(int argc, char *argv[]){
                     n=read(data.client_info.fd,buffer,128);
                     FD_CLR(data.client_info.fd,&rfds);
 
-                    FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+                    char* rest;
+                    char* token;
+                    strcpy(buffer2,buffer);
+                    printf("Rcv Buffer: %s", buffer2);
+                    token=strtok_r(buffer2,"\n",&rest);
+                    while (strchr(token,'\n')!=NULL){
+                        printf("Token: %s", token);
+                        token=strtok_r(rest,"\n", &rest);
+                    }
+                
+
                     if(n==-1) exit(1);   
                     else if (n==0)   
                     {  
@@ -191,7 +201,6 @@ int main(int argc, char *argv[]){
                     }else if(strstr(buffer,"ROUTE")){
                         printf("DEBUG: mensagem RECEBIDA: %s\n",buffer);
                         printf("DEBUG: RECEBIDOS: %ld %c\n",n);
-                        buffer[n+1]='\0';
                         chamada_route(&data,buffer);
                         //sprintf(buffer2,"ROUTE %d %d %d",atoi(data.sucessor.ID),atoi(data.sucessor.ID),atoi(data.sucessor.ID));
                         //if (strcmp(buffer2,buffer)==0)
@@ -210,6 +219,17 @@ int main(int argc, char *argv[]){
                     ssize_t n;
                     n=read(data.predecessor.TCP.fd,buffer,128);
                     FD_CLR(data.predecessor.TCP.fd,&rfds);
+
+                    char buffer2[128];
+                    char* rest;
+                    char* token;
+                    strcpy(buffer2,buffer);
+                    printf("Rcv Buffer: %s", buffer2);
+                    token=strtok_r(buffer2,"\n",&rest);
+                    while (strchr(token,'\n')!=NULL){
+                        printf("Token: %s", token);
+                        token=strtok_r(rest,"\n", &rest);
+                    }
                     //FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
                     if(n==-1) exit(1);   
                     
