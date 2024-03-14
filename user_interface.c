@@ -111,7 +111,7 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
         strcpy(inicial_inf->sucessor.ID,temp_id);
         strcpy(inicial_inf->sucessor.IP,temp_IP);
         strcpy(inicial_inf->sucessor.PORT,temp_TCP);
-        direct_join(inicial_inf);
+        inicial_inf->joining=direct_join(inicial_inf);
     }
 
     freeaddrinfo(res);
@@ -258,37 +258,9 @@ int direct_join(conect_inf* data){
     printf("DEBUG: A iniciar socket para receber mensagem do meu futuro predecessor\n");
 #endif
 
-
-    int new_predecessor_fd;  //criar descritor temporário para novo cliente e aceitar a conexão
-    data->host_info.addrlen=sizeof(data->host_info.addr);
-    if((new_predecessor_fd=accept(data->host_info.fd,(struct sockaddr*) &data->host_info.addr,&data->host_info.addrlen))==-1)/*error*/ exit(1);
-#ifdef DEBUG
-    printf("DEBUG: Socket criado. À espera de mensagem do meu futuro predecessor\n");
-#endif
-    n=read(new_predecessor_fd,buffer,128);   //receber msg com informação dele (PRED i\n)
-    if(n==-1) exit(1);   //error
-    //extrair parte da mensagem para comparar ("PRED") e confirmar que é a mensagem esperada
-    sscanf(buffer,"%s",resp_cmp);
-    if (strcmp(resp_cmp,"PRED")!=0){
-        printf("Connection attempt declined\n");
-
-        freeaddrinfo(data->client_info.res);
-        close(data->client_info.fd);
-        close(new_predecessor_fd);
-        return -1;
-    }
-    else{   //caso seja a mensagem esperada, enviar mensagem de confirmação (OK\n) e atualizar informação do predecessor
+/////////////////////////////////////////////////////////////////////
     
-        sscanf(buffer,"%*s %s",data->predecessor.ID);
-        data->predecessor.TCP.fd=new_predecessor_fd;
-
-    #ifdef DEBUG
-        printf("DEBUG: A mensagem recebida foi a esperada. Atualizado socket do predecessor e definido o seu novo ID para %s\n",data->predecessor.ID);
-    #endif
-
-    }
-    ////init_tabs(data);
-    return 0;
+    return 1;
 }
 
 
@@ -304,15 +276,14 @@ int add_client(conect_inf* data){
     int futurefd;
     data->host_info.addrlen=sizeof(data->host_info.addr);
     if((futurefd=accept(data->host_info.fd,(struct sockaddr*) &data->host_info.addr,&data->host_info.addrlen))==-1)/*error*/ exit(1);
-    
+    FD_CLR(data->host_info.fd,data->rfds);
     n=read(futurefd,buffer,128);   //receber msg com informação dele (ENTRY i i.IP i.TCP\n)
     if(n==-1) exit(1);   //error
 #ifdef DEBUG
     printf("Pedido de conexão recebido em futurefd do nó %s com a mensagem: %s\n", data->id, buffer);   //mostrar msg recebida (ENTRY i i.IP i.TCP\n)
 #endif    
-    FD_CLR(data->host_info.fd,data->rfds);
+
     //ADICIONAR VERIFICACAO PARA SABER SE TENHO ID
-    
     char tmpid[10];
     char tmpIP[30];
     char tmpTCP[10];
@@ -343,6 +314,7 @@ int add_client(conect_inf* data){
 
     //pedido de conexão tem id correto: aceitar conexão e enviar iniciar comunicação de protocolo
     //enviar msg com informação ao predecessor
+
 
     //verificar se existe predecessor i.e. se existe mais que 1 nó no anel
     if(strcmp(data->id,data->predecessor.ID)==0){ //se não existir: 
@@ -737,7 +709,7 @@ void add_adj(conect_inf*data,int pos){
         printf("entrou no return\n");
         return;
     }
-    
+    int k=0;
 
     if (pos==1){ 
         strcpy(adj,data->predecessor.ID);   ///determina se a adajacencia foi de um predecessor sucessor ou corda
@@ -753,14 +725,16 @@ void add_adj(conect_inf*data,int pos){
     }
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
-            sprintf(buffer,"ROUTE %d %d %s\n",atoi(data->id),i,data->tb_caminhos_curtos[i]);   
+            sprintf(buffer,"ROUTE %d %d %s",atoi(data->id),i,data->tb_caminhos_curtos[i]);   
             n=write(fd,buffer,strlen(buffer)+1); 
             if(n==-1) exit(1); //error    
             #ifdef DEBUG
-                printf("DEBUG: Enviado ao meu adjacente com id %s a mensagem: %s",adj,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+                printf("DEBUG: Enviado ao meu adjacente %d com id %s a mensagem: %s\n",pos,adj,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+
             #endif
         }
     }
+    printf("enviou %d bytes\n",k);
     return;
 }
 
@@ -813,7 +787,7 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
     }
 
 
-    if(strcmp(data->sucessor.ID,data->id)!=0){
+    /*if(strcmp(data->sucessor.ID,data->id)!=0){
         n=write(data->client_info.fd,buffer,strlen(buffer)+1); 
             if(n==-1) exit(1); //error    
             #ifdef DEBUG
@@ -826,7 +800,7 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
             #ifdef DEBUG
                 printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
             #endif
-    }
+    }*/
 
     /////
     ////FALTA PARA AS CORDAS
@@ -843,8 +817,8 @@ void chamada_route(conect_inf*data,char*mensagem){
 #ifdef DEBUG
     printf("DEBUG: Recebida a mensagem: %s na funcao da chamada route\n",mensagem);
 #endif
-
-    int num_converted = sscanf(mensagem, "ROUTE %d %d %s", &partida, &destino, sequencia_com_tracos);
+    
+    int num_converted = sscanf(mensagem, "ROUTE %d %d %s\n", &partida, &destino, sequencia_com_tracos);
     sprintf(id,"-%d",atoi(data->id));
     //Verificar se trouxe caminho na mensagem ou saiu um nó
     if (num_converted == 3) {   //se trouxer
@@ -887,4 +861,42 @@ int contar_nos_no_caminho(char *str) {
         }
     }
     return numeros;
+}
+
+int rcv_pred(conect_inf*data){
+    char buffer[128];
+    ssize_t n;
+    char resp_cmp[128];
+    int new_predecessor_fd;  //criar descritor temporário para novo cliente e aceitar a conexão
+    data->host_info.addrlen=sizeof(data->host_info.addr);
+    if((new_predecessor_fd=accept(data->host_info.fd,(struct sockaddr*) &data->host_info.addr,&data->host_info.addrlen))==-1)/*error*/ exit(1);
+    FD_CLR(data->host_info.fd,data->rfds);
+#ifdef DEBUG
+    printf("DEBUG: Socket criado. À espera de mensagem do meu futuro predecessor\n");
+#endif
+    n=read(new_predecessor_fd,buffer,128);   //receber msg com informação dele (PRED i\n)
+    if(n==-1) exit(1);   //error
+    //extrair parte da mensagem para comparar ("PRED") e confirmar que é a mensagem esperada
+    sscanf(buffer,"%s",resp_cmp);
+    if (strcmp(resp_cmp,"PRED")!=0){
+        printf("Connection attempt declineddd\n");
+
+        freeaddrinfo(data->client_info.res);
+        close(data->client_info.fd);
+        close(new_predecessor_fd);
+        return -1;
+    }
+    else{   //caso seja a mensagem esperada, enviar mensagem de confirmação (OK\n) e atualizar informação do predecessor
+    
+        sscanf(buffer,"%*s %s",data->predecessor.ID);
+        data->predecessor.TCP.fd=new_predecessor_fd;
+
+    #ifdef DEBUG
+        printf("DEBUG: A mensagem recebida foi a esperada. Atualizado socket do predecessor e definido o seu novo ID para %s\n",data->predecessor.ID);
+    #endif
+
+    }
+
+    return 2;
+    ////init_tabs(data);
 }

@@ -53,6 +53,7 @@ typedef struct IP_s{
     char reg_IP[30];    //IP servidor de nós do anel
     char reg_UDP[30];   //porto servidor de nós do anel
 
+     int joining;   //flag para saber se o nó está a juntar-se ao anel
 
     char ring[10];
     char id[10];
@@ -91,6 +92,8 @@ void rmv(conect_inf*inicial_inf,char *node_id);
 void add_successor(conect_inf* data, char buffer[128]);
 
 int leave_ring(conect_inf* data);
+
+int rcv_pred(conect_inf*data);
 
 void pred_reconnect(conect_inf* data, char buffer[128]);
 void suc_reconnect(conect_inf* data, char buffer[128]);

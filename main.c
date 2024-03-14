@@ -16,6 +16,7 @@ int main(int argc, char *argv[]){
     data.ring[0]='\0';
     data.id[0]='\0';
     
+   
 
     if (argc!=3 && argc!=5){
         printf("Número de argumentos de inicialição do programa incoerentes\n");
@@ -76,29 +77,47 @@ int main(int argc, char *argv[]){
                     printf("New connection\n");
                 #endif
                     add_client(&data);
-
-                    //printf("\n1\n");
-                   // usleep(250000);
                     add_adj(&data,1);
-                   /// add_adj(&data,2);
                 }
             }
         }else{
-            printf("Digite:\n");
+            printf("Digite2:\n");
             
             FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
             FD_SET(0,&rfds); // adicionar o descritor 0 (stdin) ao conjunto 
             FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto     
             FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
-            FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
-            if (data.host_info.fd>data.client_info.fd && data.host_info.fd>data.predecessor.TCP.fd){
-                maxfd=data.host_info.fd;
-            }else if(data.client_info.fd>data.host_info.fd && data.client_info.fd>data.predecessor.TCP.fd){
-                maxfd=data.client_info.fd;
+
+            if (data.joining!=1)
+            {
+                FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+                if (data.host_info.fd>data.client_info.fd && data.host_info.fd>data.predecessor.TCP.fd){
+                    maxfd=data.host_info.fd;
+                }else if(data.client_info.fd>data.host_info.fd && data.client_info.fd>data.predecessor.TCP.fd){
+                    maxfd=data.client_info.fd;
+                }
+                else{
+                    maxfd=data.predecessor.TCP.fd;
+                }
             }
             else{
-                maxfd=data.predecessor.TCP.fd;
+                data.joining=rcv_pred(&data);
+                continue;
+                if (data.host_info.fd>data.client_info.fd){
+                    maxfd=data.host_info.fd;
+                }else{
+                    maxfd=data.client_info.fd;
+                }
             }
+            if (data.joining==2){
+                printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+                add_adj(&data,2);
+                add_adj(&data,1);
+
+                data.joining=0;
+
+            }
+            
 
             int counter=select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
             if (counter==-1){
@@ -118,15 +137,18 @@ int main(int argc, char *argv[]){
                     continue;
                 }
                 if (FD_ISSET(data.host_info.fd,&rfds)){
-                #ifdef DEBUG
-                    printf("New connection\n");
-                #endif
-                    int aux=atoi(data.predecessor.ID);
-                    add_client(&data);
-                    //usleep(250000);
-                    if (aux!=atoi(data.sucessor.ID))rmv_adj(&data,aux);
-                    add_adj(&data,1);
-                    continue;
+                    
+                    
+                    #ifdef DEBUG
+                        printf("New connection\n");
+                    #endif
+                        int aux=atoi(data.predecessor.ID);
+                        add_client(&data);
+                        //usleep(250000);
+                        if (aux!=atoi(data.sucessor.ID))rmv_adj(&data,aux);
+                        add_adj(&data,1);
+                        
+                   
                 }
                 if (FD_ISSET(data.client_info.fd,&rfds)){
                 #ifdef DEBUG
@@ -137,6 +159,8 @@ int main(int argc, char *argv[]){
                     ssize_t n;
                     n=read(data.client_info.fd,buffer,128);
                     FD_CLR(data.client_info.fd,&rfds);
+
+                    FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
                     if(n==-1) exit(1);   
                     else if (n==0)   
                     {  
@@ -165,6 +189,9 @@ int main(int argc, char *argv[]){
                     }else if (strstr(buffer,"CHAT")){
                         //continue;
                     }else if(strstr(buffer,"ROUTE")){
+                        printf("DEBUG: mensagem RECEBIDA: %s\n",buffer);
+                        printf("DEBUG: RECEBIDOS: %ld %c\n",n);
+                        buffer[n+1]='\0';
                         chamada_route(&data,buffer);
                         //sprintf(buffer2,"ROUTE %d %d %d",atoi(data.sucessor.ID),atoi(data.sucessor.ID),atoi(data.sucessor.ID));
                         //if (strcmp(buffer2,buffer)==0)
@@ -183,6 +210,7 @@ int main(int argc, char *argv[]){
                     ssize_t n;
                     n=read(data.predecessor.TCP.fd,buffer,128);
                     FD_CLR(data.predecessor.TCP.fd,&rfds);
+                    //FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
                     if(n==-1) exit(1);   
                     
                     else if (n==0)   
@@ -209,13 +237,17 @@ int main(int argc, char *argv[]){
                     }else if (strstr(buffer,"CHAT")){
                         //continue;
                     }else if(strstr(buffer,"ROUTE")){
+                        printf("DEBUG: RECEBIDOS: %ld\n",n);
+                        printf("DEBUG: mensagem RECEBIDA: %s\n",buffer);
+                        buffer[n+1]='\0';
                         chamada_route(&data,buffer);
-        
                         //continue;
                     }else if(strstr(buffer,"CHORD")){
                         //continue;
                     }
                 }
+          
+                                
             }
         }
     }
@@ -257,8 +289,8 @@ void user_input( conect_inf* data){
         else{
             id_i=join(data,data->ring,data->id);
 
-            add_adj(data,1);
-            add_adj(data,2);
+            //add_adj(data,1);
+            //add_adj(data,2);
 
             if (id_i==NULL)
             {
@@ -319,10 +351,10 @@ void user_input( conect_inf* data){
             strcpy(data->secsuccessor.PORT,data->TCP);
         }
         else{
-            direct_join(data);
+            data->joining=direct_join(data);
 
-            add_adj(data,1);
-            add_adj(data,2);
+            //add_adj(data,1);
+            //add_adj(data,2);
 
             return;
         }
