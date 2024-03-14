@@ -310,7 +310,7 @@ int add_client(conect_inf* data){
 #ifdef DEBUG
     printf("Pedido de conexão recebido em futurefd do nó %s com a mensagem: %s\n", data->id, buffer);   //mostrar msg recebida (ENTRY i i.IP i.TCP\n)
 #endif    
-
+    FD_CLR(data->host_info.fd,data->rfds);
     //ADICIONAR VERIFICACAO PARA SABER SE TENHO ID
     
     char tmpid[10];

@@ -70,6 +70,7 @@ typedef struct IP_s{
     char tb_exped[100][3];
     char *tb_caminhos_curtos[100];
 
+    fd_set* rfds;
 
 }conect_inf;
 
