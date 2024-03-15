@@ -85,18 +85,18 @@ void create_TCP_server(conect_inf* data);
 
 int direct_join(conect_inf* data);
 
-int add_client(conect_inf* data);
+int add_client(conect_inf* data, char* buffer, int futurefd);
 
 void rmv(conect_inf*inicial_inf,char *node_id);
 
-void add_successor(conect_inf* data, char buffer[128]);
+void add_successor(conect_inf* data, char* buffer);
 
 int leave_ring(conect_inf* data);
 
 int rcv_pred(conect_inf*data);
 
-void pred_reconnect(conect_inf* data, char buffer[128]);
-void suc_reconnect(conect_inf* data, char buffer[128]);
+void pred_reconnect(conect_inf* data, char* buffer);
+void suc_reconnect(conect_inf* data, char* buffer);
 
 void alloc_tabs(conect_inf* data);
 
@@ -108,4 +108,6 @@ void chamada_route(conect_inf*data,char*mensagem);
     void refresh_caminho_mais_curto(conect_inf*data,int linha);
     int contar_nos_no_caminho(char *str);
 
+
+void init_pred(conect_inf*data);
 #endif // MAIN_H
