@@ -62,9 +62,6 @@ int main(int argc, char *argv[]){
     char bufferhold[256]={0};
     ssize_t n;
 
-    
-    //int n=0;
-
     while (1)
     {
         FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
@@ -92,8 +89,6 @@ int main(int argc, char *argv[]){
             data.host_info.addrlen=sizeof(data.host_info.addr);
             if((futurefd=accept(data.host_info.fd,(struct sockaddr*) &data.host_info.addr,&data.host_info.addrlen))==-1)/*error*/ exit(1);
             FD_CLR(data.host_info.fd,&rfds);
-
-               
 
             n=read(futurefd,rdbuffer,256);
             FD_CLR(futurefd,&rfds);

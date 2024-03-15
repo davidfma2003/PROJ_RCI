@@ -360,6 +360,8 @@ void add_successor(conect_inf* data,char *buffer){
     sprintf(resp_cmp,"%s",buffer);
     sscanf(buffer,"%s %s %s %s",resp_cmp,tmpid,tmpIP,tmpTCP);
     if(strcmp(resp_cmp,"ENTRY")==0){
+
+
             //colocar o novo nó como sucessor e colocar o meu sucessor como segundo sucessor e fechar socket com o meu sucessor
             strcpy(data->secsuccessor.ID,data->sucessor.ID);
             strcpy(data->secsuccessor.IP,data->sucessor.IP);
@@ -404,13 +406,14 @@ void add_successor(conect_inf* data,char *buffer){
         #ifdef DEBUG
             printf("DEBUG: Enviado ao meu predecessor com id %s a mensagem: %s",data->predecessor.ID,input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
-            
+            add_adj(data,2);
             return;
     }else if (strcmp(resp_cmp,"SUCC")==0){  //Caso receba a mensagem SUCC tenho de atualizar o meu segundo sucessor
     #ifdef DEBUG
         printf("DEBUG: Recebida a mensagem %s e por isso o nó da mensagem foi colocado como segundo sucessor\n", buffer);
     #endif
         sscanf(buffer,"%*s %s %s %s",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
+        add_adj(data,2);
     }
     else{
         printf("Connection attempt declined\n");
@@ -714,22 +717,22 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
     #endif
     }
 
-/*
-    if(strcmp(data->sucessor.ID,data->id)!=0){
+
+    if((strcmp(data->sucessor.ID,data->id)!=0) && (data->client_info.fd!=-1)){
         n=write(data->client_info.fd,buffer,strlen(buffer)); 
-            if(n==-1){printf("entrou no if)") exit(1); //error    
+            if(n==-1){printf("entrou no if)"); exit(1);} //error    
             #ifdef DEBUG
                 printf("DEBUG: Enviado ao meu adjacente (sucessor) com id %s a mensagem: %s\n",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
             #endif
     }
-    if(strcmp(data->predecessor.ID,data->id)!=0){
+    if((strcmp(data->predecessor.ID,data->id)!=0) && (data->predecessor.TCP.fd!=-1)){
         n=write(data->predecessor.TCP.fd,buffer,strlen(buffer)); 
             if(n==-1) exit(1); //error    
             #ifdef DEBUG
                 printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
             #endif
     }
-*/
+
     /////
     ////FALTA PARA AS CORDAS
     /////
