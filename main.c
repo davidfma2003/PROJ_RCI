@@ -61,7 +61,8 @@ int main(int argc, char *argv[]){
     int temp=0;
     char bufferhold[256]={0};
     ssize_t n;
-
+    int cladd=0;
+    int sucadd=0;
     while (1)
     {
         FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
@@ -70,8 +71,9 @@ int main(int argc, char *argv[]){
         if (data.client_info.fd!=-1) FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
         if (data.predecessor.TCP.fd!=-1) FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
         maxfd=retmax(data.host_info.fd,data.client_info.fd,data.predecessor.TCP.fd);
-
+#ifdef DEBUG
         printf("Digite:\n");
+#endif
         select(maxfd+1,&rfds,(fd_set*)NULL,(fd_set*)NULL,(struct timeval*)NULL);    // espera por um descritor pronto
         if (FD_ISSET(0,&rfds)){
 #ifdef DEBUG
@@ -92,23 +94,72 @@ int main(int argc, char *argv[]){
 
             n=read(futurefd,rdbuffer,256);
             FD_CLR(futurefd,&rfds);
-
+#ifdef DEBUG
             printf("BUFFER: %s",rdbuffer);
-
+#endif
             char* rest;
             char* token; 
-
+            int aux=0;
             strcpy(bufferhold,rdbuffer);
             token=strtok_r(bufferhold,"\n",&rest);
-            printf("Token: %s\n", token);
             while (token!=NULL)
             {
+                aux=atoi(data.predecessor.ID);
                 temp=add_client(&data,token,futurefd);
+                
                 token=strtok_r(rest,"\n", &rest);
-                printf("Token: %s", token);
 
             }
-            add_adj(&data,1);
+            if (aux!=atoi(data.sucessor.ID))
+            {
+                rmv_adj(&data,aux);
+            }
+            cladd=1;
+            
+            
+        }
+        if (FD_ISSET(data.predecessor.TCP.fd,&rfds))
+        {
+#ifdef DEBUG
+            printf("Message received from predecessor\n");
+#endif      
+            char rdbuffer[256]={0};
+            n=read(data.predecessor.TCP.fd,rdbuffer,256);
+            FD_CLR(data.predecessor.TCP.fd,&rfds);
+#ifdef DEBUG
+            printf("BUFFER: %s",rdbuffer);
+#endif
+            if (n==-1)
+            {
+                printf("ERRO\n");
+            }else if (n==0){  
+#ifdef DEBUG
+                printf("DEBUG: predecessor disconnected\n");
+#endif              
+                pred_reconnect(&data,rdbuffer);
+            }
+            else{
+                strcpy(bufferhold,rdbuffer);
+
+                char* rest;
+                char* token; 
+
+                token=strtok_r(bufferhold,"\n",&rest);
+                while (token!=NULL)
+                {
+                    if(strstr(token,"ROUTE")){
+                        if (cladd==1)
+                        {
+                            cladd=0;
+                            add_adj(&data,1);
+                        }
+                        chamada_route(&data,token);
+                    }else if(strstr(rdbuffer,"CHORD")){
+                        
+                    }
+                    token=strtok_r(rest,"\n", &rest);
+                }
+            }           
         }
         if (FD_ISSET(data.client_info.fd,&rfds))
         {
@@ -119,7 +170,9 @@ int main(int argc, char *argv[]){
 
             n=read(data.client_info.fd,rdbuffer,256);
             FD_CLR(data.client_info.fd,&rfds);
+#ifdef DEBUG
             printf("BUFFER: %s",rdbuffer);
+#endif
             if (n==-1)
             {
                 printf("ERRO\n");
@@ -141,15 +194,21 @@ int main(int argc, char *argv[]){
                     if (strstr(token,"ENTRY")){
                         int aux=atoi(data.sucessor.ID);
                         add_successor(&data,token);
-                        if (aux!=atoi(data.predecessor.ID))rmv_adj(&data,aux);
-                        add_adj(&data,2);
+                        if (aux!=atoi(data.predecessor.ID)){
+                            rmv_adj(&data,aux);
+                        }
+                        sucadd=1;
                     }else if (strstr(token,"SUCC")){
                         add_successor(&data,token);
-                        //add_adj(&data,2);
                     }else if (strstr(token,"CHAT")){
                     }else if(strstr(token,"ROUTE")){
-                        printf("DEBUG: mensagem RECEBIDA: %s\n",rdbuffer);
+                        if(sucadd==1)
+                        {
+                            sucadd=0;
+                            add_adj(&data,2);
+                        }
                         chamada_route(&data,token);
+
                     }else if(strstr(rdbuffer,"CHORD")){
                     }
                     token=strtok_r(rest,"\n", &rest);
@@ -158,54 +217,7 @@ int main(int argc, char *argv[]){
             }
 
         }
-        if (FD_ISSET(data.predecessor.TCP.fd,&rfds))
-        {
-#ifdef DEBUG
-            printf("Message received from predecessor\n");
-#endif      
-            char rdbuffer[256]={0};
-            n=read(data.predecessor.TCP.fd,rdbuffer,256);
-            FD_CLR(data.predecessor.TCP.fd,&rfds);
-            printf("BUFFER: %s",rdbuffer);
-            if (n==-1)
-            {
-                printf("ERRO\n");
-            }else if (n==0){  
-#ifdef DEBUG
-                printf("DEBUG: predecessor disconnected\n");
-#endif              
-                pred_reconnect(&data,rdbuffer);
-            }
-            else{
-                strcpy(bufferhold,rdbuffer);
-
-                char* rest;
-                char* token; 
-
-                token=strtok_r(bufferhold,"\n",&rest);
-                while (token!=NULL)
-                {
-                    printf("TOKEN: %s\n", token);
-                    if(strstr(token,"ROUTE")){
-                        printf("DEBUG: mensagem RECEBIDA: %s\n",token);
-                        chamada_route(&data,token);
-                    }else if(strstr(rdbuffer,"CHORD")){
-                        
-                    }
-                    token=strtok_r(rest,"\n", &rest);
-                }
-            }           
-        }
-        if (temp==3)
-        {
-            temp=4;
-        }else if (temp==4)
-        {
-            init_pred(&data);
-            add_adj(&data,2);
-            temp=0;
-        }
-    
+        
     }
     return 0;
 }
@@ -327,8 +339,7 @@ void user_input( conect_inf* data){
             
         }
         
-    }
-    else{
+    }else{
         printf("Input inválido\nPor favor tente novamente\n");
     }
     return;

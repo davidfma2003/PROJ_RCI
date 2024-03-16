@@ -16,8 +16,6 @@
 #include <errno.h>
 #include <ctype.h>
 
-#define DEBUG 1
-
 
 #define CONNECTION_TIMEOUT_SECONDS 6
 
