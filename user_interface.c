@@ -220,6 +220,7 @@ int direct_join(conect_inf* data){
 #ifdef DEBUG
     printf("DEBUG: Enviado para o sucessor %s: %s",data->sucessor.ID,input);
 #endif
+    return 1;
     char resp[256]={0};
     n=read(data->client_info.fd, resp, sizeof(resp));
 #ifdef DEBUG  
@@ -245,7 +246,7 @@ int direct_join(conect_inf* data){
 #endif
 
 
-        rcv_pred(data);
+        //rcv_pred(data);
 
     }
 
@@ -276,19 +277,22 @@ int add_client(conect_inf* data, char* buffer, int futurefd){
             sprintf(input,"SUCC %s %s %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);   //confirmar ao novo nó que sou o seu sucessor e enviar msg com info do meu sucessor (SUCC k k.IP k.TCP\n), que é o 2o sucessor do nó a entrar
             n=write(futurefd,input,strlen(input)+1); 
             if(n==-1) exit(1); //error 
-        #ifdef DEBUG      
+#ifdef DEBUG      
             printf("DEBUG: Enviada mensagem de protocolo para futurefd no caso em que só há 1 nó: %s\n",input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
-        #endif
+#endif
 
             //Atualizar informação de predecessor
             data->predecessor.TCP.fd=futurefd;
             strcpy(data->predecessor.ID,data->sucessor.ID);
-        #ifdef DEBUG
+#ifdef DEBUG
             printf("DEBUG: Atualizado socket do predecessor e definido o seu novo ID para %s\n",data->predecessor.ID);
-        #endif
+#endif
             init_pred(data);
             
             return 3;
+
+
+
         }else{   //se existir: enviar msg com informação do novo nó ao meu predecessor, para que este o possa adicionar como seu sucessor
             
             sscanf(buffer,"%*s %s %s %s",tmpid,tmpIP,tmpTCP);
@@ -324,6 +328,8 @@ int add_client(conect_inf* data, char* buffer, int futurefd){
         printf("DEBUG: Atualizado socket do predecessor e definido o seu novo ID para %s\n",data->predecessor.ID);
 #endif  
         
+        add_adj(data,1);
+        add_adj(data,2);
         
         return 2;
 
@@ -406,9 +412,20 @@ void add_successor(conect_inf* data,char *buffer){
             
             close(data->client_info.fd);
             data->client_info.fd=-1;
-        #ifdef DEBUG
+
+#ifdef DEBUG
             printf("DEBUG: Atualizado o meu sucessor para %s e o meu segundo sucessor para %s e fechado socket com este útimo\n",data->sucessor.ID,data->secsuccessor.ID);
-        #endif
+#endif
+
+            
+            char input[300]={0};
+            sprintf(input,"SUCC %s %s %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);   //enviar msg com informação do novo nó ao meu predecessor (ENTRY i i.IP i.TCP\n)
+
+            n=write(data->predecessor.TCP.fd,input,strlen(input)+1); 
+            if(n==-1) exit(1); //error    
+#ifdef DEBUG
+            printf("DEBUG: Enviado ao meu predecessor com id %s a mensagem: %s",data->predecessor.ID,input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+#endif
 
             //iniciar socket TCP para ser cliente do meu novo sucessor
             int errcode;
@@ -425,31 +442,22 @@ void add_successor(conect_inf* data,char *buffer){
             n=connect(data->client_info.fd,data->client_info.res->ai_addr,data->client_info.res->ai_addrlen);
             if(n==-1) exit(1);  //error
 
-            char input[300];
+           
             sprintf(input,"PRED %s\n",data->id);
             n=write(data->client_info.fd,input,strlen(input)+1);
             if(n==-1)exit(1);  //error
 
-        #ifdef DEBUG
+#ifdef DEBUG
             printf("DEBUG: Aberto socket com o meu novo sucessor, enviada a mensagem '%s' para o id %s\n",input,data->sucessor.ID);    
-        #endif
+#endif
 
-
-            sprintf(input,"SUCC %s %s %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);   //enviar msg com informação do novo nó ao meu predecessor (ENTRY i i.IP i.TCP\n)
-
-            n=write(data->predecessor.TCP.fd,input,strlen(input)+1); 
-            if(n==-1) exit(1); //error    
-        #ifdef DEBUG
-            printf("DEBUG: Enviado ao meu predecessor com id %s a mensagem: %s",data->predecessor.ID,input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
-        #endif
-            //add_adj(data,2);
             return;
-    }else if (strcmp(resp_cmp,"SUCC")==0){  //Caso receba a mensagem SUCC tenho de atualizar o meu segundo sucessor
-    #ifdef DEBUG
+    }else if (strcmp(resp_cmp,"SUCC")==0){  //Caso receba a mensagem SUCC do meu sucessor, tenho de atualizar o meu segundo sucessor
+#ifdef DEBUG
         printf("DEBUG: Recebida a mensagem %s e por isso o nó da mensagem foi colocado como segundo sucessor\n", buffer);
-    #endif
+#endif
         sscanf(buffer,"%*s %s %s %s",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
-        //add_adj(data,2);
+
     }
     else{
         printf("Connection attempt declined\n");
@@ -660,7 +668,7 @@ void init_tabs(conect_inf* data){
     for (int i=0;i<=99;i++){
             sprintf(data->tb_exped[i],"-");
     }
-    sprintf(data->tb_caminhos_curtos[atoi(data->id)],"%d",atoi(data->id));   /// deternima-se a si próprio como caminho masis curto
+    sprintf(data->tb_caminhos_curtos[atoi(data->id)],"%s",data->id);   /// deternima-se a si próprio como caminho masis curto
 #ifdef DEBUG
     printf("TAMANH0: %ld\n",strlen(data->tb_caminhos_curtos[atoi(data->id)]));
 #endif
@@ -696,7 +704,7 @@ void add_adj(conect_inf*data,int pos){
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
             char buffer2[256]={0};
-            if (i==atoi(data->id)){
+            /* if (i==atoi(data->id)){
                 sprintf(buffer2,"ROUTE %d %d %d\n",i,i,i); 
                 if (i<10){
                     buffer2[strlen(buffer2)]=0;
@@ -707,11 +715,23 @@ void add_adj(conect_inf*data,int pos){
                     n=write(fd,buffer2,strlen(buffer2)); 
                     if(n==-1) exit(1); //error
                 }
-            }else{
+            }else{ 
                 sprintf(buffer2,"ROUTE %d %d %s\n",atoi(data->id),i, data->tb_caminhos_curtos[i]); 
                 n=write(fd,buffer2,strlen(buffer2)); 
                 if(n==-1) exit(1); //error    
+            }*/
+
+            if (i<10)
+            {
+                sprintf(buffer2,"ROUTE %s 0%d %s\n",data->id,i, data->tb_caminhos_curtos[i]); 
+                n=write(fd,buffer2,strlen(buffer2)); 
+                if(n==-1) exit(1); //error    
+            }else{
+                sprintf(buffer2,"ROUTE %s %d %s\n",data->id,i, data->tb_caminhos_curtos[i]); 
+                n=write(fd,buffer2,strlen(buffer2)); 
+                if(n==-1) exit(1); //error    
             }
+            
             
             #ifdef DEBUG
                 printf("DEBUG: Enviado ao meu adjacente %d com id %s a mensagem: %s\n",pos,adj,buffer2);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
@@ -722,27 +742,33 @@ void add_adj(conect_inf*data,int pos){
     return;
 }
 
-void rmv_adj(conect_inf*data,int adj){
+void rmv_adj(conect_inf*data,char* adj){
     char buffer[256]={0};
-    sprintf(buffer,"%d-%d",atoi(data->id),adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
+    sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
-        strcpy(data->tb_encaminhamento[i][adj],"-");
+        strcpy(data->tb_encaminhamento[i][atoi(adj)],"-");
         if (strlen(data->tb_caminhos_curtos[i])>2 && strstr(buffer,data->tb_caminhos_curtos[i])!=NULL ){                 /// tem um caminho que não ele proprio
-            refresh_caminho_mais_curto(data,i);
+            char i_str[10];
+            if (i<10){
+                sprintf(i_str,"0%d",i);
+            }
+            else{
+                sprintf(i_str,"%d",i);
+            }
+            refresh_caminho_mais_curto(data,i_str);
             
         }
     }
 }
 
-void refresh_caminho_mais_curto(conect_inf*data,int linha){
+void refresh_caminho_mais_curto(conect_inf*data,char* linha){
     int tam_caminho,menor=-1,tam_menor=200,n;
     char buffer[256]={0};
-    int r=0;
-    if (linha==atoi(data->id)){
+    if (strcmp(data->id,linha)==0){
         return;
     }
     for (int i=0;i<=99;i++){
-        tam_caminho=contar_nos_no_caminho(data->tb_encaminhamento[linha][i]);
+        tam_caminho=contar_nos_no_caminho(data->tb_encaminhamento[atoi(linha)][i]);
         if (tam_caminho>0 && tam_caminho<tam_menor){
             tam_menor=tam_caminho;
             menor=i;
@@ -750,49 +776,27 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
     }
 
     if (menor==-1){
-        strcpy(data->tb_caminhos_curtos[linha],"-");
-        strcpy(data->tb_exped[linha],"-");
-        sprintf(buffer,"ROUTE %d %d\n",atoi(data->id),linha);
-        r=1;
+        strcpy(data->tb_caminhos_curtos[atoi(linha)],"-");
+        strcpy(data->tb_exped[atoi(linha)],"-");
+        sprintf(buffer,"ROUTE %s %s\n",data->id,linha);
     }
-    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[linha])==tam_menor){
+    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor){
         return;
     }
     else{
-        strcpy(data->tb_caminhos_curtos[linha],data->tb_encaminhamento[linha][menor]);
+        strcpy(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor]);
         if (tam_menor==2){
-            sscanf(data->tb_caminhos_curtos[linha],"%*d-%s",data->tb_exped[linha]); 
+            sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s",data->tb_exped[atoi(linha)]); 
         }
         else{
-            sscanf(data->tb_caminhos_curtos[linha],"%*d-%s-%*s",data->tb_exped[linha]); 
+            sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s-%*s",data->tb_exped[atoi(linha)]); 
         }
-        sprintf(buffer,"ROUTE %d %d %s\n",atoi(data->id),linha,data->tb_caminhos_curtos[linha]);
+        sprintf(buffer,"ROUTE %s %s %s\n",data->id,linha,data->tb_caminhos_curtos[atoi(linha)]);
     #ifdef DEBUG
         printf("DEBUG: Atualizado caminho mais curto\n");
     #endif
     }
 
-
-    /* if((strcmp(data->sucessor.ID,data->id)!=0) && (data->client_info.fd!=-1)){
-        if(r==1){
-            buffer[strlen(buffer)]=0;
-            if (linha<10) n=write(data->client_info.fd,buffer,strlen(buffer)+4);
-            else n=write(data->client_info.fd,buffer,strlen(buffer)+2);
-        }else n=write(data->client_info.fd,buffer,strlen(buffer));
-        #ifdef DEBUG
-            printf("DEBUG: Enviado ao meu adjacente (sucessor) com id %s a mensagem: %s\n",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
-        #endif
-    }
-    if((strcmp(data->predecessor.ID,data->id)!=0) && (data->predecessor.TCP.fd!=-1)){
-        if(r==1){
-            buffer[strlen(buffer)]=0;
-            if (linha<10) n=write(data->predecessor.TCP.fd,buffer,strlen(buffer)+4);
-            else n=write(data->predecessor.TCP.fd,buffer,strlen(buffer)+2);
-        }else n=write(data->predecessor.TCP.fd,buffer,strlen(buffer)); 
-        #ifdef DEBUG
-            printf("DEBUG: Enviado ao meu adjacente (sucessor) com id %s a mensagem: %s\n",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
-        #endif
-    }   */
     if((strcmp(data->sucessor.ID,data->id)!=0) && (data->client_info.fd!=-1)){
         n=write(data->client_info.fd,buffer,strlen(buffer)); 
         if(n==-1) exit(1); //error    
@@ -817,7 +821,9 @@ void refresh_caminho_mais_curto(conect_inf*data,int linha){
 
 void chamada_route(conect_inf*data,char*mensagem){
     int partida, destino;
-    char id[10]={0};
+    char partida_str[10]={0};
+    char destino_str[10]={0};
+    char id[11]={0};
     char buffer[256]={0};
     char sequencia_com_tracos[200]={0};
 
@@ -825,22 +831,24 @@ void chamada_route(conect_inf*data,char*mensagem){
     printf("DEBUG: Recebida a mensagem: %s na funcao da chamada route\n",mensagem);
 #endif
     
-    int num_converted = sscanf(mensagem, "ROUTE %d %d %s\n", &partida, &destino, sequencia_com_tracos);
-    sprintf(id,"-%d",atoi(data->id));
+    int num_converted = sscanf(mensagem, "ROUTE %s %s %s\n", partida_str, destino_str, sequencia_com_tracos);
+    partida=atoi(partida_str);
+    destino=atoi(destino_str);
+    sprintf(id,"-%s",data->id);
     //Verificar se trouxe caminho na mensagem ou saiu um nó
     if (num_converted == 3) {   //se trouxer
         //ver se o caminho é válido
-        if (strstr(sequencia_com_tracos,id)){   
+        if (strstr(sequencia_com_tracos,id)!=NULL){   
             return;
         }
         else{   //atualizar tabela de encaminhamento e vai extrair o novo caminho mais curto
-            sprintf(buffer,"%d-%s",atoi(data->id),sequencia_com_tracos);
+            sprintf(buffer,"%s-%s",data->id,sequencia_com_tracos);
             strcpy(data->tb_encaminhamento[destino][partida],buffer);
-            refresh_caminho_mais_curto(data,destino);
+            refresh_caminho_mais_curto(data,destino_str);
         }
     } else {    //se não trouxer é saída de um nó
         strcpy(data->tb_encaminhamento[destino][partida],"-");  //reset da tabela de encaminhamento
-        refresh_caminho_mais_curto(data,destino);   //atualizar caminhos mais curtos
+        refresh_caminho_mais_curto(data,destino_str);   //atualizar caminhos mais curtos
     }
     return;
 }

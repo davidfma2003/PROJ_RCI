@@ -1,3 +1,6 @@
+#ifdef DEBUG
+#include "debug.h"
+#endif
 #ifndef MAIN_H
 #define MAIN_H
 
@@ -8,7 +11,7 @@
 #include <stdbool.h>
 #include <sys/select.h>
 #include <signal.h>
-#include "debug.h"
+
 // Function declarations or prototypes
 
 int main(int argc, char *argv[]);

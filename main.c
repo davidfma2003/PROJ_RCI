@@ -58,7 +58,6 @@ int main(int argc, char *argv[]){
 
     fd_set rfds;
     int maxfd;
-    int temp=0;
     char bufferhold[256]={0};
     ssize_t n;
     int cladd=0;
@@ -100,19 +99,18 @@ int main(int argc, char *argv[]){
             char* rest;
             char* token; 
             int aux=0;
+            char aux2[10]={0};
             strcpy(bufferhold,rdbuffer);
             token=strtok_r(bufferhold,"\n",&rest);
             while (token!=NULL)
             {
-                aux=atoi(data.predecessor.ID);
-                temp=add_client(&data,token,futurefd);
-                
+                strcpy(aux2,data.predecessor.ID);
+                add_client(&data,token,futurefd);
                 token=strtok_r(rest,"\n", &rest);
-
             }
-            if (aux!=atoi(data.sucessor.ID))
+            if (strcmp(aux2,data.sucessor.ID)!=0)
             {
-                rmv_adj(&data,aux);
+                rmv_adj(&data,aux2);
             }
             cladd=1;
             
@@ -187,15 +185,16 @@ int main(int argc, char *argv[]){
 
                 char* rest;
                 char* token; 
-
+                
                 token=strtok_r(bufferhold,"\n",&rest);
                 while (token!=NULL)
                 {
                     if (strstr(token,"ENTRY")){
-                        int aux=atoi(data.sucessor.ID);
+                        char aux2[10]={0};
+                        strcpy(aux2,data.sucessor.ID);
                         add_successor(&data,token);
-                        if (aux!=atoi(data.predecessor.ID)){
-                            rmv_adj(&data,aux);
+                        if (strcmp(aux2,data.predecessor.ID)!=0){
+                            rmv_adj(&data,aux2);
                         }
                         sucadd=1;
                     }else if (strstr(token,"SUCC")){
@@ -217,7 +216,6 @@ int main(int argc, char *argv[]){
             }
 
         }
-        
     }
     return 0;
 }
