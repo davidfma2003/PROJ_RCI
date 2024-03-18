@@ -249,31 +249,6 @@ int direct_join(conect_inf* data){
     printf("DEBUG: Enviado para o sucessor %s: %s",data->sucessor.ID,input);
 #endif
     return 1;
-    /* char resp[256]={0};
-    n=read(data->client_info.fd, resp, sizeof(resp));
-#ifdef DEBUG  
-    printf("DEBUG: Conexão estabelecida. recebido do sucessor a seguinte mensagem: %s\n", resp);
-#endif
-
-    //Verificar se a resposta é a esperada e atualizar informaçaõ do segundo sucessor caso seja, anular tudo caso não seja e enviar mensagem de erro
-    
-    char resp_cmp[300]; //variavel para extrair parte da resposta para comparar
-
-    sscanf(resp,"%s",resp_cmp);
-    if (strcmp(resp_cmp,"SUCC")!=0){
-        printf("Connection attempt declined\n");
-
-        freeaddrinfo(data->client_info.res);
-        close(data->client_info.fd);
-        return -1;
-    }
-    else{
-        sscanf(resp,"%*s %s %s %s",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
-#ifdef DEBUG
-        printf("DEBUG: Conexão com sucessor %s confirmada. O 2o sucessor foi atualizado para %s\n",data->sucessor.ID,data->secsuccessor.ID);
-#endif
-    } 
-    return 1;*/
 }
 
 
@@ -775,9 +750,9 @@ void rmv_adj(conect_inf*data,char* adj){
 }
 
 void disconect_adj(conect_inf*data,char* adj){
-#ifdef DEBUG
+//#ifdef DEBUG
     printf("entrou no disconect_adj\n");
-#endif
+//#endif
     char buffer[256]={0};
     sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
