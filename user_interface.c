@@ -220,7 +220,7 @@ int direct_join(conect_inf* data){
     char input[300]={0};
     int errcode;
     ssize_t n;
-
+    
     init_tabs(data);
 
     //Iniciar ligação TCP como cliente do nó a que me quero juntar através do seu endereço IP e porta TCP que foi dada como input

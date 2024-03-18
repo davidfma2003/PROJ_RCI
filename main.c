@@ -361,6 +361,7 @@ void user_input( conect_inf* data){
             strcpy(data->secsuccessor.ID,data->id);
             strcpy(data->secsuccessor.IP,data->IP);
             strcpy(data->secsuccessor.PORT,data->TCP);
+            init_tabs(data);
         }
         else{
             data->joining=direct_join(data);
