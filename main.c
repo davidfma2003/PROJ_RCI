@@ -98,7 +98,6 @@ int main(int argc, char *argv[]){
 #endif
             char* rest;
             char* token; 
-            int aux=0;
             char aux2[10]={0};
             strcpy(bufferhold,rdbuffer);
             token=strtok_r(bufferhold,"\n",&rest);
@@ -133,8 +132,15 @@ int main(int argc, char *argv[]){
             }else if (n==0){  
 #ifdef DEBUG
                 printf("DEBUG: predecessor disconnected\n");
-#endif              
+#endif          
+                char aux[10]={0};
+                strcpy(aux,data.predecessor.ID);
+                
+                //printf("AUXXXXXXXXXXXX: %s",aux); 
                 pred_reconnect(&data,rdbuffer);
+                disconect_adj(&data,aux);  
+                add_adj(&data,1);
+                
             }
             else{
                 strcpy(bufferhold,rdbuffer);
@@ -152,7 +158,11 @@ int main(int argc, char *argv[]){
                             add_adj(&data,1);
                         }
                         chamada_route(&data,token);
-                    }else if(strstr(rdbuffer,"CHORD")){
+                    }else if (strstr(token,"CHAT"))
+                    {
+                        rcv_mensagem(&data,token);
+                    }
+                    else if(strstr(token,"CHORD")){
                         
                     }
                     token=strtok_r(rest,"\n", &rest);
@@ -165,7 +175,6 @@ int main(int argc, char *argv[]){
             printf("Message received from sucessor\n");
 #endif
             char rdbuffer[256]={0};
-
             n=read(data.client_info.fd,rdbuffer,256);
             FD_CLR(data.client_info.fd,&rfds);
 #ifdef DEBUG
@@ -177,8 +186,14 @@ int main(int argc, char *argv[]){
             }else if (n==0){  
 #ifdef DEBUG
                 printf("DEBUG: Sucessor disconnected\n");
-#endif              
+#endif          
+                char aux[10]={0};
+                strcpy(aux,data.sucessor.ID);
+                //printf("AUXXXXXXXXXXXX: %s",aux);   
                 suc_reconnect(&data,rdbuffer);
+                disconect_adj(&data,aux);  
+                add_adj(&data,2);
+                
             }
             else{
                 strcpy(bufferhold,rdbuffer);
@@ -200,6 +215,7 @@ int main(int argc, char *argv[]){
                     }else if (strstr(token,"SUCC")){
                         add_successor(&data,token);
                     }else if (strstr(token,"CHAT")){
+                        rcv_mensagem(&data,token);
                     }else if(strstr(token,"ROUTE")){
                         if(sucadd==1)
                         {
@@ -226,7 +242,6 @@ void user_input( conect_inf* data){
     char* id_i;
     
     fgets(input, 299, stdin);
-    //FD_CLR(0,data->rfds);
     
     if(input[0]=='x'){
         printf("Fecho da aplicação\n");
@@ -238,6 +253,20 @@ void user_input( conect_inf* data){
 
     else if(input[0]=='j' && input[1]==' '){
         sscanf(input,"%*s %s %s",data->ring,id_buff);
+        char *tb=NULL;
+        strtol(data->ring,&tb,10);
+        if (tb==data->ring)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
+        tb=NULL;
+        strtol(id_buff,&tb,10);
+        if (tb==id_buff)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
         if (data->id[0]!='\0' && strcmp(id_buff,data->id)!=0){
             printf("Está se a tentar resgistar num anel com um id diferente do que se registou na ligação com outro nó\n");
             return;
@@ -279,6 +308,8 @@ void user_input( conect_inf* data){
         else{
             printf("Nó nao retirado do anel\n");
         }
+
+
         
     }
     else if (input[0]=='d' && input[1]=='j'){
@@ -287,11 +318,32 @@ void user_input( conect_inf* data){
             printf("Não é possível registar um nó com id difrente do registado no servidor\n");
             
         }
+        
         sscanf(input,"%*s %s %s %s %s",data->id,data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
+
+        char *tb=NULL;
+        strtol(data->id,&tb,10);
+        if (tb==data->id)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
+        tb=NULL;
+        strtol(data->sucessor.ID,&tb,10);
+        if (tb==data->sucessor.ID)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
+
+
         if (atoi(data->id)<0 || atoi(data->id)>99 || strlen(data->id)!=2){
             printf("Valor de id inválido (necessário 2 digitos)\nPor favor tente novamente\n");
             
         }
+        
+
+
         else if (atoi(data->sucessor.ID)<0 || atoi(data->sucessor.ID)>99 || strlen(data->sucessor.ID)!=2){
             printf("Valor de id do sucessor inválido (necessário 2 digitos)\nPor favor tente novamente\n");
             
@@ -320,11 +372,86 @@ void user_input( conect_inf* data){
         printf("Predecessor:\n\tid: %s\n",data->predecessor.ID);
         printf("Sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
         printf("Segundo sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
+        printf("Corda estabelecida:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->chords.ID,data->chords.IP,data->chords.PORT);
     }
+    else if(input[0]=='s' && input[1]=='r' && input[2]==' '){
+        char dest[10]={0};
+        sscanf(input,"%*s %s",dest);
+        char *tb=NULL;
+        strtol(dest,&tb,10);
+        if (tb==dest)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
+        
+        printf("Tabela de encaminhamento para %s:\n",dest);
+
+
+
+        for (int i = 0; i < 100; i++)
+        {
+            if (strcmp(data->tb_encaminhamento[atoi(dest)][i],"-")!=0)
+            {
+                printf("%d: %s\n",i,data->tb_encaminhamento[atoi(dest)][i]);
+            }
+        }
+    }
+    else if (input[0]=='s' && input[1]=='p' && input[2]==' '){
+        char dest[10]={0};
+        sscanf(input,"%*s %s",dest);
+        char *tb=NULL;
+        strtol(dest,&tb,10);
+        if (tb==dest)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
+        printf("Caminho mais pequeno para %s:\n\t%s",dest,data->tb_caminhos_curtos[atoi(dest)]);
+    }
+    else if(input[0]=='s' && input[1]=='f'){
+        printf("Tabela de expedição:\n");
+        for (int i = 0; i < 100; i++)
+        {
+            if (strcmp(data->tb_exped[i],"-")!=0)
+            {
+                printf("%d: %s\n",i,data->tb_exped[i]);
+            }   
+        }
+    }else if (input[0]=='m' && input[1]==' ')   
+    {
+        char dest[10]={0};
+        char msg[100]={0};
+        sscanf(input,"%*s %s %s",dest,msg);
+        char *tb=NULL;
+        strtol(dest,&tb,10);
+        if (tb==dest)
+        {
+            printf("Input inválido\nPor favor tente novamente\n");
+            return;
+        }
+        if (strcmp(data->tb_caminhos_curtos[atoi(dest)],"-")==0)
+        {
+            printf("Não é possível enviar mensagem para %s\n",dest);
+        }
+        else{
+            enviar_mensagem(data,dest,msg,data->id);
+            printf("Mensagem enviada para %s\n",dest);
+        }
+    }
+    else if (input[0]=='c' && input[1]==' ')    
+    {
+        send_chord(data);    
+    }
+    else if (input[0]=='r' && input[1]=='c' && input[2]==' ')    
+    {
+        rmv_chord(data);
+    }
+    
     else if(input[0]=='r'){
-        char temop[10];
-        sscanf(input,"%*s %s",temop);
-        rmv(data,temop);
+        char temp[10];
+        sscanf(input,"%*s %s",temp);
+        rmv(data,temp);
     }
     else if(input[0]=='e'){
         printf("Tabela de caminhos mais curtos:\n");

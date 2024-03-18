@@ -6,16 +6,16 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
     //Adicionar ao anel
     char buffer2[700]={0};
 
-    char temp_id[4];
-    char temp_IP[30];
-    char temp_TCP[10];
+    char temp_id[4]={0};
+    char temp_IP[30]={0};
+    char temp_TCP[10]={0};
     
     struct sockaddr addr; 
     socklen_t addrlen; 
     ssize_t n;
     char buffer[700]={0};
     char invite[129]={0};
-    char id_i[4];
+    char id_i[4]={0};
 
     char* buffer2_chopped;
 
@@ -26,24 +26,39 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
     int connection_attempts=0;
 
     fd = socket(AF_INET, SOCK_DGRAM, 0); //UDP socket
-    if (fd == -1)                        /*error*/
+    if (fd == -1){
+        printf("Erro socket na função Join\n");
         exit(1);
+    }
+        
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;      //IPv4
     hints.ai_socktype = SOCK_DGRAM; //UDP socket
 
     errcode = getaddrinfo(inicial_inf->reg_IP, inicial_inf->reg_UDP, &hints, &res);
-    if (errcode != 0) /*error*/
+    if (errcode != 0){
+        printf("Erro getaddrinfo na função Join\n");
         exit(1);
+    }
+        
     
     //Pedir lista de nós ao servidor
     sprintf(invite,"NODES %s",ring);
     n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1) /*error*/{
+        printf("Erro sendto na função Join\n");
+        free(res);
+        close(fd);
         exit(1);
     }
-    addrlen=sizeof(addr); n=recvfrom(fd,buffer2,700,0,&addr,&addrlen); if(n==-1)/*error*/exit(1);
+    addrlen=sizeof(addr); n=recvfrom(fd,buffer2,700,0,&addr,&addrlen); 
+    if(n==-1){
+        printf("Erro recvfrom na função Join\n");
+        free(res);
+        close(fd);
+        exit(1);
+    }
 #ifdef DEBUG
     printf("Received %ld bytes: %s\n",n , buffer2);
 #endif
@@ -54,10 +69,20 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
     #endif
         sprintf(invite,"REG %s %s %s %s",ring,id_i,inicial_inf->IP,inicial_inf->TCP);
         n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
-        if (n == -1) /*error*/{
+        if (n == -1){
+            printf("Erro sendto 2 na função Join\n");
+            free(res);
+            close(fd);
             exit(1);
         }
-        addrlen=sizeof(addr); n=recvfrom(fd,buffer,700,0,&addr,&addrlen); if(n==-1)/*error*/exit(1);
+        addrlen=sizeof(addr); 
+        n=recvfrom(fd,buffer,700,0,&addr,&addrlen); 
+        if(n==-1){
+            printf("Erro recvfrom 2 na função Join\n");
+            free(res);
+            close(fd);
+            exit(1);
+        }
         buffer[n] = '\0';
         if (strcmp("OKREG",buffer)!=0){
             printf("Não foi possível contactar com o servidor.\n");
@@ -85,7 +110,10 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
         while (1){
             sprintf(invite,"REG %s %s %s %s",ring,id_i,inicial_inf->IP,inicial_inf->TCP);
             n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
-            if (n == -1) /*error*/{
+            if (n == -1){
+                printf("Erro sendto 3 na função Join\n");
+                free(res);
+                close(fd);
                 exit(1);
             }
             
@@ -221,7 +249,7 @@ int direct_join(conect_inf* data){
     printf("DEBUG: Enviado para o sucessor %s: %s",data->sucessor.ID,input);
 #endif
     return 1;
-    char resp[256]={0};
+    /* char resp[256]={0};
     n=read(data->client_info.fd, resp, sizeof(resp));
 #ifdef DEBUG  
     printf("DEBUG: Conexão estabelecida. recebido do sucessor a seguinte mensagem: %s\n", resp);
@@ -244,13 +272,8 @@ int direct_join(conect_inf* data){
 #ifdef DEBUG
         printf("DEBUG: Conexão com sucessor %s confirmada. O 2o sucessor foi atualizado para %s\n",data->sucessor.ID,data->secsuccessor.ID);
 #endif
-
-
-        //rcv_pred(data);
-
-    }
-
-    return 1;
+    } 
+    return 1;*/
 }
 
 
@@ -263,9 +286,9 @@ int add_client(conect_inf* data, char* buffer, int futurefd){
     //ADICIONAR VERIFICACAO PARA SABER SE TENHO ID
     char send_buffer[256]={0};
 
-    char tmpid[10];
-    char tmpIP[30];
-    char tmpTCP[10];
+    char tmpid[10]={0};
+    char tmpIP[30]={0};
+    char tmpTCP[10]={0};
     
 
     if(strstr(buffer,"ENTRY ")!=NULL){   //se a msg recebida for a esperada
@@ -280,7 +303,6 @@ int add_client(conect_inf* data, char* buffer, int futurefd){
 #ifdef DEBUG      
             printf("DEBUG: Enviada mensagem de protocolo para futurefd no caso em que só há 1 nó: %s\n",input);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
 #endif
-
             //Atualizar informação de predecessor
             data->predecessor.TCP.fd=futurefd;
             strcpy(data->predecessor.ID,data->sucessor.ID);
@@ -487,6 +509,7 @@ int leave_ring(conect_inf* data){
 #ifdef DEBUG
     printf("DEBUG: Fechadas as comunicações com sucessor e predecessor e resetados todos os parâmetros");
 #endif
+    init_tabs(data);
     return 1;
 }
 
@@ -617,6 +640,7 @@ void suc_reconnect(conect_inf* data,char *buffer){
 #ifdef DEBUG
     printf("DEBUG: Enviado ao meu predecessor com id %s a mensagem: %s",data->predecessor.ID,send_buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
 #endif
+    return;
     char rdbuffer[256]={0};
     //esperar para receber a informação do meu segundo sucessor
     n=read(data->client_info.fd,rdbuffer,128);
@@ -704,23 +728,6 @@ void add_adj(conect_inf*data,int pos){
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
             char buffer2[256]={0};
-            /* if (i==atoi(data->id)){
-                sprintf(buffer2,"ROUTE %d %d %d\n",i,i,i); 
-                if (i<10){
-                    buffer2[strlen(buffer2)]=0;
-                    n=write(fd,buffer2,strlen(buffer2)+2); 
-                    if(n==-1) exit(1); //error
-                }
-                else{
-                    n=write(fd,buffer2,strlen(buffer2)); 
-                    if(n==-1) exit(1); //error
-                }
-            }else{ 
-                sprintf(buffer2,"ROUTE %d %d %s\n",atoi(data->id),i, data->tb_caminhos_curtos[i]); 
-                n=write(fd,buffer2,strlen(buffer2)); 
-                if(n==-1) exit(1); //error    
-            }*/
-
             if (i<10)
             {
                 sprintf(buffer2,"ROUTE %s 0%d %s\n",data->id,i, data->tb_caminhos_curtos[i]); 
@@ -743,11 +750,17 @@ void add_adj(conect_inf*data,int pos){
 }
 
 void rmv_adj(conect_inf*data,char* adj){
+#ifdef DEBUG
+    printf("entrou no rmv_adj\n");
+#endif
     char buffer[256]={0};
     sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
         strcpy(data->tb_encaminhamento[i][atoi(adj)],"-");
         if (strlen(data->tb_caminhos_curtos[i])>2 && strstr(buffer,data->tb_caminhos_curtos[i])!=NULL ){                 /// tem um caminho que não ele proprio
+#ifdef DEBUG
+            printf("entrou no if e tem na tabela de encaminhamento:%s\n",data->tb_encaminhamento[i][atoi(adj)]);
+#endif 
             char i_str[10];
             if (i<10){
                 sprintf(i_str,"0%d",i);
@@ -761,6 +774,39 @@ void rmv_adj(conect_inf*data,char* adj){
     }
 }
 
+void disconect_adj(conect_inf*data,char* adj){
+#ifdef DEBUG
+    printf("entrou no disconect_adj\n");
+#endif
+    char buffer[256]={0};
+    sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
+    for(int i=0;i<=99;i++){
+        strcpy(data->tb_encaminhamento[i][atoi(adj)],"-");
+        if (strlen(data->tb_caminhos_curtos[i])>2 && strstr(buffer,data->tb_caminhos_curtos[i])!=NULL && atoi(adj)!=i ){                 /// tem um caminho que não ele proprio
+#ifdef DEBUG
+            printf("entrou no if e tem na tabela de encaminhamento:%s\n",data->tb_encaminhamento[i][atoi(adj)]);
+#endif
+            char i_str[10];
+            if (i<10){
+                sprintf(i_str,"0%d",i);
+            }
+            else{
+                sprintf(i_str,"%d",i);
+            }
+            refresh_caminho_mais_curto(data,i_str);
+            
+        }
+        if(atoi(adj)==i){
+#ifdef DEBUG
+            printf("entrou no segundo if/n");
+#endif
+            for (int j=0;j<=99;j++){
+                strcpy(data->tb_encaminhamento[atoi(adj)][j],"-");
+            }
+            refresh_caminho_mais_curto(data,adj);
+        }
+    }
+}
 void refresh_caminho_mais_curto(conect_inf*data,char* linha){
     int tam_caminho,menor=-1,tam_menor=200,n;
     char buffer[256]={0};
@@ -789,7 +835,9 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s",data->tb_exped[atoi(linha)]); 
         }
         else{
-            sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s-%*s",data->tb_exped[atoi(linha)]); 
+            data->tb_exped[atoi(linha)][0]=data->tb_caminhos_curtos[atoi(linha)][3];
+            data->tb_exped[atoi(linha)][1]=data->tb_caminhos_curtos[atoi(linha)][4];
+            data->tb_exped[atoi(linha)][2]='\0';
         }
         sprintf(buffer,"ROUTE %s %s %s\n",data->id,linha,data->tb_caminhos_curtos[atoi(linha)]);
     #ifdef DEBUG
@@ -847,8 +895,13 @@ void chamada_route(conect_inf*data,char*mensagem){
             refresh_caminho_mais_curto(data,destino_str);
         }
     } else {    //se não trouxer é saída de um nó
-        strcpy(data->tb_encaminhamento[destino][partida],"-");  //reset da tabela de encaminhamento
-        refresh_caminho_mais_curto(data,destino_str);   //atualizar caminhos mais curtos
+        if (strcmp(data->tb_caminhos_curtos[destino],"-")==0){
+            return;
+        }
+        else{
+            strcpy(data->tb_encaminhamento[destino][partida],"-");  //reset da tabela de encaminhamento
+            refresh_caminho_mais_curto(data,destino_str);   //atualizar caminhos mais curtos
+        }
     }
     return;
 }
@@ -942,5 +995,194 @@ void init_pred(conect_inf*data){
 #ifdef DEBUG
     printf("DEBUG: Enviado para o meu sucessor (%s) pelo socket client fd no caos em que só existe 1 nó: %s",data->sucessor.ID,input);
 #endif
+    return;
+}
+
+void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem){
+    int d=atoi(dest);
+
+    char no_a_enviar[10]={0};
+
+    strcpy(no_a_enviar,data->tb_exped[d]);
+
+    char buffer_envio[256]={0};
+
+    if (strcmp(origem,data->id)==0)
+    {
+        sprintf(buffer_envio,"CHAT %s %s %s\n",data->id,dest,mensagem);
+    }else{
+        sprintf(buffer_envio,"CHAT %s %s %s\n",origem,dest,mensagem);
+    }
+    
+    if (strcmp(no_a_enviar,data->sucessor.ID)==0)
+    {
+        ssize_t n;
+        n=write(data->client_info.fd,buffer_envio,strlen(buffer_envio)+1);
+        if(n==-1) exit(1); //error
+        return;
+    }
+    if (strcmp(no_a_enviar,data->predecessor.ID)==0)
+    {
+        ssize_t n;
+        n=write(data->predecessor.TCP.fd,buffer_envio,strlen(buffer_envio)+1);
+        if(n==-1) exit(1); //error
+    }
+#ifdef DEBUG
+    printf("DEBUG: Enviado para o nó %s a mensagem: %s",no_a_enviar,buffer_envio);
+#endif
+    return;
+}
+
+void rcv_mensagem(conect_inf* data, char* mensagem){
+    char origem[10]={0};
+    char destino[10]={0};
+    char msg[256]={0};
+    sscanf(mensagem,"CHAT %s %s %s\n",origem,destino,msg);
+    if (strcmp(destino,data->id)==0)
+    {
+        printf("Mensagem recebida de %s: %s\n",origem,msg);
+    }else{
+        enviar_mensagem(data,destino,msg,origem);
+    }
+    return;
+}
+
+
+
+
+
+
+
+
+
+void send_chord(conect_inf* data){
+    char buffer2[700]={0};
+
+    char temp_id[4]={0};
+    char temp_IP[30]={0};
+    char temp_TCP[10]={0};
+    
+    struct sockaddr addr; 
+    socklen_t addrlen; 
+    ssize_t n;
+    char buffer[700]={0};
+    char invite[129]={0};
+
+    char* buffer2_chopped;
+
+    struct addrinfo hints, *res;
+    int fd, errcode, randn=0;
+    srand(time(NULL));
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0); //UDP socket
+    if (fd == -1){
+        printf("Erro socket na função Join\n");
+        exit(1);
+    }
+        
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;      //IPv4
+    hints.ai_socktype = SOCK_DGRAM; //UDP socket
+
+    errcode = getaddrinfo(data->reg_IP, data->reg_UDP, &hints, &res);
+    if (errcode != 0){
+        printf("Erro getaddrinfo na função Join\n");
+        exit(1);
+    }
+        
+    
+    //Pedir lista de nós ao servidor
+    sprintf(invite,"NODES %s",data->ring);
+    n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) /*error*/{
+        printf("Erro sendto na função Join\n");
+        free(res);
+        close(fd);
+        exit(1);
+    }
+    addrlen=sizeof(addr); n=recvfrom(fd,buffer2,700,0,&addr,&addrlen); 
+    if(n==-1){
+        printf("Erro recvfrom na função Join\n");
+        free(res);
+        close(fd);
+        exit(1);
+    }
+#ifdef DEBUG
+    printf("Received %ld bytes: %s\n",n , buffer2);
+#endif
+    //nodeslist 051\n--->14 carateres
+    if (n>80)
+    {
+        buffer2_chopped=buffer2+14;
+        
+        
+        char* rest;
+        char* token;
+        token=strtok_r(buffer2_chopped,"\n",&rest);
+        int nlinhas=0;
+        while (token!=NULL){
+
+            printf("token: %s\n",token);
+            nlinhas++;
+            token=strtok_r(rest,"\n",&rest);
+
+
+        }
+        char verif[10]={0};
+        printf("nlinhas: %d\n",nlinhas);
+        printf("buffer2_chopped: %s\n",buffer2_chopped);
+        rest=0;
+        token=strtok_r(buffer2_chopped,"\n",&rest);
+        do{
+            
+            randn=rand()%nlinhas;
+            printf("randn: %d\n",randn);
+            for (int i=0;i<randn;i++){
+                token=strtok_r(rest,"\n",&rest);
+                printf("token: %s\n",token);
+            }
+            sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
+            strcpy(verif,temp_id);
+        }while (strcmp(verif,data->sucessor.ID)==0 || strcmp(verif,data->predecessor.ID)==0 || strcmp(verif,data->id)==0);
+        printf("No escolhido: %s\n",temp_id);
+        strcpy(data->chords.ID,temp_id);
+        strcpy(data->chords.IP,temp_IP);
+        strcpy(data->chords.PORT,temp_TCP);
+
+
+        int errcode;
+        ssize_t n;
+        char input[300];
+        data->chords.TCP.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
+        if (data->chords.TCP.fd==-1) exit(1); //error
+
+        memset(&data->chords.TCP.hints,0,sizeof data->chords.TCP.hints);
+        data->chords.TCP.hints.ai_family=AF_INET; //IPv4
+        data->chords.TCP.hints.ai_socktype=SOCK_STREAM; //TCP socket
+
+        
+        errcode=getaddrinfo(data->chords.IP,data->chords.PORT,&data->chords.TCP.hints,&data->chords.TCP.res);
+        if(errcode!=0) exit(1); //error
+        n=connect(data->chords.TCP.fd,data->chords.TCP.res->ai_addr,data->chords.TCP.res->ai_addrlen);
+        if(n==-1) exit(1);  //error
+        
+        sprintf(buffer,"CHORD %s\n",data->id);
+        n=write(data->chords.TCP.fd,buffer,strlen(input)+1);
+        if(n==-1)exit(1);  //error
+#ifdef DEBUG
+        printf("DEBUG: Enviado para a corda (%s) pelo socket client fd no caos em que só existe 1 nó: %s",data->chords.ID,input);
+#endif
+    
+    }
+    else{
+        printf("Não foi possível encontrar um nó para a corda\n");
+    }
+    freeaddrinfo(res);
+    close(fd);
+    return;
+}
+
+void rmv_chord(conect_inf* data){
     return;
 }
