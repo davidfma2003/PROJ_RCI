@@ -104,8 +104,9 @@ void add_adj(conect_inf*data,int pos);
 void rmv_adj(conect_inf*data,char* adj);
 void disconect_adj(conect_inf*data,char* adj);
 void chamada_route(conect_inf*data,char*mensagem);
-    void refresh_caminho_mais_curto(conect_inf*data,char* linha);
-    int contar_nos_no_caminho(char *str);
+void refresh_caminho_mais_curto(conect_inf*data,char* linha);
+void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha);
+int contar_nos_no_caminho(char *str);
 
 
 void init_pred(conect_inf*data);

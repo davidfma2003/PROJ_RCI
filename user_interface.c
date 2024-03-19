@@ -725,14 +725,14 @@ void add_adj(conect_inf*data,int pos){
 }
 
 void rmv_adj(conect_inf*data,char* adj){
-#ifdef DEBUG
-    printf("entrou no rmv_adj\n");
-#endif
+//#ifdef DEBUG
+    printf("entrou no rmv_adj para tirar o %s\n",adj);
+//#endif
     char buffer[256]={0};
     sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
         strcpy(data->tb_encaminhamento[i][atoi(adj)],"-");
-        if (strlen(data->tb_caminhos_curtos[i])>2 && strstr(buffer,data->tb_caminhos_curtos[i])!=NULL ){                 /// tem um caminho que não ele proprio
+        if (strstr(data->tb_caminhos_curtos[i],buffer)!=NULL ){                 /// tem um caminho que não ele proprio
 #ifdef DEBUG
             printf("entrou no if e tem na tabela de encaminhamento:%s\n",data->tb_encaminhamento[i][atoi(adj)]);
 #endif 
@@ -743,7 +743,7 @@ void rmv_adj(conect_inf*data,char* adj){
             else{
                 sprintf(i_str,"%d",i);
             }
-            refresh_caminho_mais_curto(data,i_str);
+            refresh_caminho_mais_curto_sem_encaminhamento(data,i_str);
             
         }
     }
@@ -783,7 +783,7 @@ void disconect_adj(conect_inf*data,char* adj){
     }
 }
 void refresh_caminho_mais_curto(conect_inf*data,char* linha){
-    int tam_caminho,menor=-1,tam_menor=200,n;
+    int tam_caminho,menor=-1,tam_menor=200,n,n_caminhos_menores=0;
     char buffer[256]={0};
     if (strcmp(data->id,linha)==0){
         return;
@@ -792,8 +792,11 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         tam_caminho=contar_nos_no_caminho(data->tb_encaminhamento[atoi(linha)][i]);
         if (tam_caminho>0 && tam_caminho<tam_menor){
             tam_menor=tam_caminho;
+            n_caminhos_menores=1;
             menor=i;
         }
+        else if(tam_caminho>0 && tam_caminho==tam_menor)
+            n_caminhos_menores++;
     }
 
     if (menor==-1){
@@ -801,9 +804,11 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         strcpy(data->tb_exped[atoi(linha)],"-");
         sprintf(buffer,"ROUTE %s %s\n",data->id,linha);
     }
-    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor){
-        return;
+    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && n_caminhos_menores>1){
+         return;
     }
+    else if (contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && strcmp(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor])==0)
+        return;
     else{
         strcpy(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor]);
         if (tam_menor==2){
@@ -842,6 +847,44 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
     return;
 }
 
+void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha){
+    int tam_caminho,menor=-1,tam_menor=200,n;
+    char buffer[256]={0};
+    if (strcmp(data->id,linha)==0){
+        return;
+    }
+    for (int i=0;i<=99;i++){
+        tam_caminho=contar_nos_no_caminho(data->tb_encaminhamento[atoi(linha)][i]);
+        if (tam_caminho>0 && tam_caminho<tam_menor){
+            tam_menor=tam_caminho;
+            menor=i;
+        }
+    }
+
+    if (menor==-1){
+        strcpy(data->tb_caminhos_curtos[atoi(linha)],"-");
+        strcpy(data->tb_exped[atoi(linha)],"-");
+    }
+    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor){
+        return;
+    }
+    else{
+        strcpy(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor]);
+        if (tam_menor==2){
+            sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s",data->tb_exped[atoi(linha)]); 
+        }
+        else{
+            data->tb_exped[atoi(linha)][0]=data->tb_caminhos_curtos[atoi(linha)][3];
+            data->tb_exped[atoi(linha)][1]=data->tb_caminhos_curtos[atoi(linha)][4];
+            data->tb_exped[atoi(linha)][2]='\0';
+        }
+    #ifdef DEBUG
+        printf("DEBUG: Atualizado caminho mais curto\n");
+    #endif
+    }
+    return;
+}
+
 void chamada_route(conect_inf*data,char*mensagem){
     int partida, destino;
     char partida_str[10]={0};
@@ -874,6 +917,7 @@ void chamada_route(conect_inf*data,char*mensagem){
             return;
         }
         else{
+            printf("ELIMINADO DE %s a %s\n",partida_str,destino_str);
             strcpy(data->tb_encaminhamento[destino][partida],"-");  //reset da tabela de encaminhamento
             refresh_caminho_mais_curto(data,destino_str);   //atualizar caminhos mais curtos
         }
