@@ -1,3 +1,6 @@
+#ifdef DEBUG
+#include "debug.h"
+#endif
 #ifndef MAIN_H
 #define MAIN_H
 
@@ -7,10 +10,11 @@
 #include "user_interface.h"
 #include <stdbool.h>
 #include <sys/select.h>
-#define DEBUG 1
+#include <signal.h>
+
 // Function declarations or prototypes
 
 int main(int argc, char *argv[]);
-
+int retmax(int a, int b, int c);
 
 #endif // MAIN_H
