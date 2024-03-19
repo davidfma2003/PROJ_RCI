@@ -384,7 +384,7 @@ void user_input( conect_inf* data){
         printf("Predecessor:\n\tid: %s\n",data->predecessor.ID);
         printf("Sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
         printf("Segundo sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
-        printf("Corda estabelecida:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->chords.ID,data->chords.IP,data->chords.PORT);
+        printf("Corda estabelecida:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->chord.ID,data->chord.IP,data->chord.PORT);
     }
     else if(input[0]=='s' && input[1]=='r' && input[2]==' '){
         char dest[10]={0};
@@ -434,7 +434,11 @@ void user_input( conect_inf* data){
     {
         char dest[10]={0};
         char msg[100]={0};
-        sscanf(input,"%*s %s %s",dest,msg);
+        sscanf(input,"%*s %s %s\n",dest,msg);
+        if (strlen(dest)!=2){
+            printf("Valor de id de destino inválido\n");
+            return;
+        }
         char *tb=NULL;
         strtol(dest,&tb,10);
         if (tb==dest)
@@ -447,7 +451,7 @@ void user_input( conect_inf* data){
             printf("Não é possível enviar mensagem para %s\n",dest);
         }
         else{
-            enviar_mensagem(data,dest,msg,data->id);
+            enviar_mensagem(data,dest,&input[5],data->id);
             printf("Mensagem enviada para %s\n",dest);
         }
     }

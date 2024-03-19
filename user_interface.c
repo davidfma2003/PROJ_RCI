@@ -697,8 +697,8 @@ void add_adj(conect_inf*data,int pos){
         fd=data->client_info.fd;
     }
     else { 
-        strcpy(adj,data->chords.ID);
-        fd=data->chords.TCP.fd;
+        strcpy(adj,data->chord.ID);
+        fd=data->chord.TCP.fd;
     }
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
@@ -853,8 +853,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
 }
 
 void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha){
-    int tam_caminho,menor=-1,tam_menor=200,n;
-    char buffer[256]={0};
+    int tam_caminho,menor=-1,tam_menor=200;
     if (strcmp(data->id,linha)==0){
         return;
     }
@@ -1040,7 +1039,6 @@ void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem)
     }else{
         sprintf(buffer_envio,"CHAT %s %s %s\n",origem,dest,mensagem);
     }
-    
     if (strcmp(no_a_enviar,data->sucessor.ID)==0)
     {
         ssize_t n;
@@ -1067,17 +1065,12 @@ void rcv_mensagem(conect_inf* data, char* mensagem){
     sscanf(mensagem,"CHAT %s %s %s\n",origem,destino,msg);
     if (strcmp(destino,data->id)==0)
     {
-        printf("Mensagem recebida de %s: %s\n",origem,msg);
+        printf("Mensagem recebida de %s:%s\n",origem,&mensagem[11]);
     }else{
-        enviar_mensagem(data,destino,msg,origem);
+        enviar_mensagem(data,destino,&mensagem[11],origem);
     }
     return;
 }
-
-
-
-
-
 
 
 
@@ -1173,29 +1166,29 @@ void send_chord(conect_inf* data){
             strcpy(verif,temp_id);
         }while (strcmp(verif,data->sucessor.ID)==0 || strcmp(verif,data->predecessor.ID)==0 || strcmp(verif,data->id)==0);
         printf("No escolhido: %s\n",temp_id);
-        strcpy(data->chords.ID,temp_id);
-        strcpy(data->chords.IP,temp_IP);
-        strcpy(data->chords.PORT,temp_TCP);
+        strcpy(data->chord.ID,temp_id);
+        strcpy(data->chord.IP,temp_IP);
+        strcpy(data->chord.PORT,temp_TCP);
 
 
         int errcode;
         ssize_t n;
         char input[300];
-        data->chords.TCP.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
-        if (data->chords.TCP.fd==-1) exit(1); //error
+        data->chord.TCP.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
+        if (data->chord.TCP.fd==-1) exit(1); //error
 
-        memset(&data->chords.TCP.hints,0,sizeof data->chords.TCP.hints);
-        data->chords.TCP.hints.ai_family=AF_INET; //IPv4
-        data->chords.TCP.hints.ai_socktype=SOCK_STREAM; //TCP socket
+        memset(&data->chord.TCP.hints,0,sizeof data->chord.TCP.hints);
+        data->chord.TCP.hints.ai_family=AF_INET; //IPv4
+        data->chord.TCP.hints.ai_socktype=SOCK_STREAM; //TCP socket
 
         
-        errcode=getaddrinfo(data->chords.IP,data->chords.PORT,&data->chords.TCP.hints,&data->chords.TCP.res);
+        errcode=getaddrinfo(data->chord.IP,data->chord.PORT,&data->chord.TCP.hints,&data->chord.TCP.res);
         if(errcode!=0) exit(1); //error
-        n=connect(data->chords.TCP.fd,data->chords.TCP.res->ai_addr,data->chords.TCP.res->ai_addrlen);
+        n=connect(data->chord.TCP.fd,data->chord.TCP.res->ai_addr,data->chord.TCP.res->ai_addrlen);
         if(n==-1) exit(1);  //error
         
         sprintf(buffer,"CHORD %s\n",data->id);
-        n=write(data->chords.TCP.fd,buffer,strlen(input)+1);
+        n=write(data->chord.TCP.fd,buffer,strlen(input)+1);
         if(n==-1)exit(1);  //error
 #ifdef DEBUG
         printf("DEBUG: Enviado para a corda (%s) pelo socket client fd no caos em que só existe 1 nó: %s",data->chords.ID,input);

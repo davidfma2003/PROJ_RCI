@@ -63,7 +63,7 @@ typedef struct IP_s{
     node sucessor;    //informação das ligações
     node predecessor; //informação das ligações
     node secsuccessor;    //informação das ligações com 2o sucessor
-    node chords;
+    node chord;
 
     char *tb_encaminhamento[100][100];
     char tb_exped[100][3];
