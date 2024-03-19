@@ -62,6 +62,7 @@ int main(int argc, char *argv[]){
     ssize_t n;
     int cladd=0;
     int sucadd=0;
+    char aux[10]={0};
     while (1)
     {
         FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
@@ -133,13 +134,13 @@ int main(int argc, char *argv[]){
 #ifdef DEBUG
                 printf("DEBUG: predecessor disconnected\n");
 #endif          
-                char aux[10]={0};
+
                 strcpy(aux,data.predecessor.ID);
                 
-                //printf("AUXXXXXXXXXXXX: %s",aux); 
                 pred_reconnect(&data,rdbuffer);
-                disconect_adj(&data,aux);  
-                add_adj(&data,1);
+                disconect_adj(&data,aux,data.predecessor.ID);  
+                //add_adj(&data,1);
+                cladd=2;
                 
             }
             else{
@@ -155,6 +156,11 @@ int main(int argc, char *argv[]){
                         if (cladd==1)
                         {
                             cladd=0;
+                            add_adj(&data,1);
+                        }
+                        if (cladd==2){
+                            cladd=0;
+                            //disconect_adj(&data,aux,data.predecessor.ID);  
                             add_adj(&data,1);
                         }
                         chamada_route(&data,token);
@@ -187,12 +193,12 @@ int main(int argc, char *argv[]){
 #ifdef DEBUG
                 printf("DEBUG: Sucessor disconnected\n");
 #endif          
-                char aux[10]={0};
+
                 strcpy(aux,data.sucessor.ID);
-                //printf("AUXXXXXXXXXXXX: %s",aux);   
                 suc_reconnect(&data,rdbuffer);
-                disconect_adj(&data,aux);  
-                add_adj(&data,2);
+                //disconect_adj(&data,aux,data.sucessor.ID);  
+                sucadd=2;
+                //add_adj(&data,2);
                 
             }
             else{
@@ -220,6 +226,11 @@ int main(int argc, char *argv[]){
                         if(sucadd==1)
                         {
                             sucadd=0;
+                            add_adj(&data,2);
+                        }
+                        else if(sucadd==2){
+                            sucadd=0;
+                            disconect_adj(&data,aux,data.sucessor.ID);
                             add_adj(&data,2);
                         }
                         chamada_route(&data,token);

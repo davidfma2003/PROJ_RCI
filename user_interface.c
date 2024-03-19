@@ -725,9 +725,9 @@ void add_adj(conect_inf*data,int pos){
 }
 
 void rmv_adj(conect_inf*data,char* adj){
-//#ifdef DEBUG
+#ifdef DEBUG
     printf("entrou no rmv_adj para tirar o %s\n",adj);
-//#endif
+#endif
     char buffer[256]={0};
     sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
@@ -749,18 +749,19 @@ void rmv_adj(conect_inf*data,char* adj){
     }
 }
 
-void disconect_adj(conect_inf*data,char* adj){
+void disconect_adj(conect_inf*data,char* adj,char*new_adj){
 //#ifdef DEBUG
-    printf("entrou no disconect_adj\n");
+    printf("entrou no disconect_adj %s\n",adj);
 //#endif
     char buffer[256]={0};
     sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
         strcpy(data->tb_encaminhamento[i][atoi(adj)],"-");
-        if (strlen(data->tb_caminhos_curtos[i])>2 && strstr(buffer,data->tb_caminhos_curtos[i])!=NULL && atoi(adj)!=i ){                 /// tem um caminho que não ele proprio
+        if (strstr(data->tb_caminhos_curtos[i],buffer)!=NULL && atoi(adj)!=i){                 /// tem um caminho que não ele proprio
 #ifdef DEBUG
             printf("entrou no if e tem na tabela de encaminhamento:%s\n",data->tb_encaminhamento[i][atoi(adj)]);
 #endif
+            
             char i_str[10];
             if (i<10){
                 sprintf(i_str,"0%d",i);
@@ -768,8 +769,11 @@ void disconect_adj(conect_inf*data,char* adj){
             else{
                 sprintf(i_str,"%d",i);
             }
-            refresh_caminho_mais_curto(data,i_str);
-            
+         
+            if(strlen(data->tb_encaminhamento[i][atoi(data->sucessor.ID)])>1 || strlen(data->tb_encaminhamento[i][atoi(data->predecessor.ID)])>1){
+                refresh_caminho_mais_curto(data,i_str);
+            }
+
         }
         if(atoi(adj)==i){
 #ifdef DEBUG
@@ -803,6 +807,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         strcpy(data->tb_caminhos_curtos[atoi(linha)],"-");
         strcpy(data->tb_exped[atoi(linha)],"-");
         sprintf(buffer,"ROUTE %s %s\n",data->id,linha);
+        printf("%s\n",buffer);
     }
     else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && n_caminhos_menores>1){
          return;
@@ -917,8 +922,11 @@ void chamada_route(conect_inf*data,char*mensagem){
             return;
         }
         else{
+#ifdef DEBUG
             printf("ELIMINADO DE %s a %s\n",partida_str,destino_str);
-            strcpy(data->tb_encaminhamento[destino][partida],"-");  //reset da tabela de encaminhamento
+#endif
+            for (int k=0;k<100;k++)
+                strcpy(data->tb_encaminhamento[destino][k],"-");  //reset da tabela de encaminhamento
             refresh_caminho_mais_curto(data,destino_str);   //atualizar caminhos mais curtos
         }
     }

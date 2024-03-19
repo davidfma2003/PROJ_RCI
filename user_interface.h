@@ -102,7 +102,7 @@ void init_tabs(conect_inf* data);
 void free_tabs(conect_inf* data);
 void add_adj(conect_inf*data,int pos);
 void rmv_adj(conect_inf*data,char* adj);
-void disconect_adj(conect_inf*data,char* adj);
+void disconect_adj(conect_inf*data,char* adj,char*new_adj);
 void chamada_route(conect_inf*data,char*mensagem);
 void refresh_caminho_mais_curto(conect_inf*data,char* linha);
 void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha);
