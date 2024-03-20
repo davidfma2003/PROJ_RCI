@@ -15,6 +15,6 @@
 // Function declarations or prototypes
 
 int main(int argc, char *argv[]);
-int retmax(int a, int b, int c);
+
 
 #endif // MAIN_H

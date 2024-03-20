@@ -330,8 +330,23 @@ int add_client(conect_inf* data, char* buffer, int futurefd){
         
         return 2;
 
-    }
-    else{   //se não for a msg esperada
+    }else if(strstr(buffer,"CHORD ")!=NULL){
+        int i=0;
+        for (i = 0; i < 13; i++)
+        {
+            if(data->rcv_chords[i]->fd==-1){
+                break;
+            }
+        }
+        
+        sscanf(buffer,"%*s %s",data->rcv_chords[i]->ID);
+        data->rcv_chords[i]->fd=futurefd;
+//#ifdef DEBUG
+        printf("Adicionado nó %s como corda\n",data->rcv_chords[i]->ID);
+//#endif    
+        //add_adj(data,3);
+        return 4;
+    }else{   //se não for a msg esperada
         printf("Connection attempt declined\n");
         close(futurefd);
         return -1;
@@ -472,6 +487,26 @@ int leave_ring(conect_inf* data){
     //3. Fechar conexão com o seu predecessor
     close(data->predecessor.TCP.fd);
     data->predecessor.TCP.fd=-1;
+    //fechar com as cordas
+    if (data->chord.TCP.fd!=-1)
+    {
+        close(data->chord.TCP.fd);
+        data->chord.TCP.fd=-1;
+        data->chord.ID[0]='\0';
+        data->chord.IP[0]='\0';
+        data->chord.PORT[0]='\0';
+    }
+
+    
+    for (int i = 0; i < 13; i++)
+    {
+        if(data->rcv_chords[i]->fd!=-1){
+            close(data->rcv_chords[i]->fd);
+            data->rcv_chords[i]->fd=-1;
+            data->rcv_chords[i]->ID[0]='\0';
+        }
+    }
+
     //4. Resetar a sua informação
     data->secsuccessor.ID[0]='\0';
     data->secsuccessor.IP[0]='\0';
@@ -845,6 +880,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
     }
+    //if (data->chord.)
 
     /////
     ////FALTA PARA AS CORDAS
@@ -1074,7 +1110,6 @@ void rcv_mensagem(conect_inf* data, char* mensagem){
 
 
 
-
 void send_chord(conect_inf* data){
     char buffer2[700]={0};
 
@@ -1096,7 +1131,7 @@ void send_chord(conect_inf* data){
 
     fd = socket(AF_INET, SOCK_DGRAM, 0); //UDP socket
     if (fd == -1){
-        printf("Erro socket na função Join\n");
+        printf("Erro socket na função send chord\n");
         exit(1);
     }
         
@@ -1107,7 +1142,7 @@ void send_chord(conect_inf* data){
 
     errcode = getaddrinfo(data->reg_IP, data->reg_UDP, &hints, &res);
     if (errcode != 0){
-        printf("Erro getaddrinfo na função Join\n");
+        printf("Erro getaddrinfo na função send chord\n");
         exit(1);
     }
         
@@ -1116,7 +1151,7 @@ void send_chord(conect_inf* data){
     sprintf(invite,"NODES %s",data->ring);
     n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1) /*error*/{
-        printf("Erro sendto na função Join\n");
+        printf("Erro sendto na função send chord\n");
         free(res);
         close(fd);
         exit(1);
@@ -1136,44 +1171,50 @@ void send_chord(conect_inf* data){
     {
         buffer2_chopped=buffer2+14;
         
-        
         char* rest;
         char* token;
+        char strs[16][40];
         token=strtok_r(buffer2_chopped,"\n",&rest);
-        int nlinhas=0;
-        while (token!=NULL){
-
-            printf("token: %s\n",token);
-            nlinhas++;
-            token=strtok_r(rest,"\n",&rest);
-
-
-        }
-        char verif[10]={0};
-        printf("nlinhas: %d\n",nlinhas);
-        printf("buffer2_chopped: %s\n",buffer2_chopped);
-        rest=0;
-        token=strtok_r(buffer2_chopped,"\n",&rest);
+        int nlinhas=0,i=0,k=0;
+        strcpy(temp_id,data->id);
         do{
             
-            randn=rand()%nlinhas;
-            printf("randn: %d\n",randn);
-            for (int i=0;i<randn;i++){
-                token=strtok_r(rest,"\n",&rest);
-                printf("token: %s\n",token);
+            //sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
+#ifdef DEBUG
+            printf("token: %s %d\n",token,sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP));
+#endif
+            nlinhas++;
+            if (strcmp(temp_id,data->sucessor.ID)!=0 && strcmp(temp_id,data->predecessor.ID)!=0 && strcmp(temp_id,data->id)!=0)
+            {   
+                k=0;
+                for (int j = 0; data->rcv_chords[j]->fd!=-1; j++)
+                {
+                    if (strcmp(data->rcv_chords[j]->ID,temp_id)==0) k=1;
+                }
+                if (k==0){
+                    strcpy(strs[i],token);
+                    i++;
+                }
+ 
             }
-            sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
-            strcpy(verif,temp_id);
-        }while (strcmp(verif,data->sucessor.ID)==0 || strcmp(verif,data->predecessor.ID)==0 || strcmp(verif,data->id)==0);
-        printf("No escolhido: %s\n",temp_id);
+            token=strtok_r(rest,"\n",&rest);
+        }while (token!=NULL);
+        if (i==0){
+            printf("Não é possivel estabelecer corda com nenhum dos nós do anel\n");
+            return;
+        }
+
+        srand(time(NULL));
+        randn=rand()%i;
+        sscanf(strs[randn],"%s %s %s",temp_id,temp_IP,temp_TCP);
+
+        printf("No escolhido para corda: %s\n",temp_id);
         strcpy(data->chord.ID,temp_id);
         strcpy(data->chord.IP,temp_IP);
         strcpy(data->chord.PORT,temp_TCP);
 
-
         int errcode;
         ssize_t n;
-        char input[300];
         data->chord.TCP.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
         if (data->chord.TCP.fd==-1) exit(1); //error
 
@@ -1188,10 +1229,10 @@ void send_chord(conect_inf* data){
         if(n==-1) exit(1);  //error
         
         sprintf(buffer,"CHORD %s\n",data->id);
-        n=write(data->chord.TCP.fd,buffer,strlen(input)+1);
+        n=write(data->chord.TCP.fd,buffer,strlen(buffer)+1);
         if(n==-1)exit(1);  //error
 #ifdef DEBUG
-        printf("DEBUG: Enviado para a corda (%s) pelo socket client fd no caos em que só existe 1 nó: %s",data->chords.ID,input);
+        printf("DEBUG: Enviado para a corda (%s) pelo socket chords fd: %s",data->chord.ID,buffer);
 #endif
     
     }
@@ -1203,6 +1244,24 @@ void send_chord(conect_inf* data){
     return;
 }
 
-void rmv_chord(conect_inf* data){
+void rmv_established_chord(conect_inf* data){
+    close(data->chord.TCP.fd);
+    data->chord.TCP.fd=-1;
+    strcpy(data->chord.ID,"\0");
+    strcpy(data->chord.IP,"\0");
+    strcpy(data->chord.PORT,"\0");
+    return;
+}
+
+void chord_disconnected(conect_inf* data,int pos){
+    int j=0;
+    _chord* aux;
+    for(j=pos;strlen(data->rcv_chords[j]->ID)>0;j++);
+    j--;
+    aux=data->rcv_chords[pos];
+    data->rcv_chords[pos]=data->rcv_chords[j];
+    data->rcv_chords[j]=aux;
+    data->rcv_chords[j]->fd=-1;
+    data->rcv_chords[j]->ID[0]='\0';
     return;
 }
