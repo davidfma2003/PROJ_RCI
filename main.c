@@ -68,6 +68,7 @@ int main(int argc, char *argv[]){
     ssize_t n;
     int cladd=0;
     int sucadd=0;
+    int chordadd=0;
     char aux[10]={0};
     while (1)
     {
@@ -123,6 +124,7 @@ int main(int argc, char *argv[]){
                 rmv_adj(&data,aux2);
             }
             if (ret!=4) cladd=1;
+            else chordadd=1;
             
             
         }
@@ -175,9 +177,6 @@ int main(int argc, char *argv[]){
                     }else if (strstr(token,"CHAT"))
                     {
                         rcv_mensagem(&data,token);
-                    }
-                    else if(strstr(token,"CHORD")){
-                        
                     }
                     token=strtok_r(rest,"\n", &rest);
                 }
@@ -241,7 +240,6 @@ int main(int argc, char *argv[]){
                         }
                         chamada_route(&data,token);
 
-                    }else if(strstr(rdbuffer,"CHORD")){
                     }
                     token=strtok_r(rest,"\n", &rest);
                 }
@@ -270,11 +268,11 @@ int main(int argc, char *argv[]){
                 token=strtok_r(bufferhold,"\n",&rest);
                 while (token!=NULL)
                 {
-                    if (strstr(rdbuffer,"ROUTE ")){
-                        
+                    if (strstr(token,"ROUTE ")){
+                        chamada_route(&data,token);
 
                         
-                    }else if(strstr(rdbuffer,"CHAT ")){
+                    }else if(strstr(token,"CHAT ")){
                         rcv_mensagem(&data,token);
                     }
                     token=strtok_r(rest,"\n", &rest);
@@ -305,11 +303,13 @@ int main(int argc, char *argv[]){
                         token=strtok_r(bufferhold,"\n",&rest);
                         while (token!=NULL)
                         {
-                            if (strstr(rdbuffer,"ROUTE ")){
-                                
-                                
-                                
-                            }else if(strstr(rdbuffer,"CHAT ")){
+                            if (strstr(token,"ROUTE ")){
+                                if (chordadd==1){
+                                    chordadd=0;
+                                    add_adj(&data,4);
+                                }
+                                chamada_route(&data,token);
+                            }else if(strstr(token,"CHAT ")){
                                 rcv_mensagem(&data,token);
                             }
                             token=strtok_r(rest,"\n", &rest);
@@ -540,6 +540,7 @@ void user_input( conect_inf* data){
     {
         if(data->chord.TCP.fd==-1 && strcmp(data->secsuccessor.ID,data->predecessor.ID)!=0 && strcmp(data->sucessor.ID,data->predecessor.ID)!=0 && strcmp(data->id,data->sucessor.ID)!=0){
             send_chord(data); 
+            add_adj(data,3);
         }
         else{
             printf("Não é possivel estabelecer corda com nenhum dos nós do anel_input\n\n\n");

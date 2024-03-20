@@ -731,10 +731,20 @@ void add_adj(conect_inf*data,int pos){
         strcpy(adj,data->sucessor.ID);
         fd=data->client_info.fd;
     }
-    else { 
+    else if (pos==3) { 
         strcpy(adj,data->chord.ID);
         fd=data->chord.TCP.fd;
     }
+    else{
+        int j=0;
+        for (j=0;data->rcv_chords[j]->fd!=-1;j++);
+        j--;
+        printf("corda com id %s\n",data->rcv_chords[j]->ID);
+        strcpy(adj,data->rcv_chords[j]->ID);
+        fd=data->rcv_chords[j]->fd;
+    }
+     
+    
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
             char buffer2[256]={0};
@@ -880,7 +890,20 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
     }
-    //if (data->chord.)
+    if (data->chord.TCP.fd!=-1){
+        n=write(data->chord.TCP.fd,buffer,strlen(buffer)); 
+        if(n==-1) exit(1); //error    
+        #ifdef DEBUG
+            printf("DEBUG: Enviado ao meu adjacente (corda aberta por mim) com id %s a mensagem: %s\n",data->chord.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+        #endif
+    }
+    for (int i=0;data->rcv_chords[i]->fd!=-1;i++){
+        n=write(data->rcv_chords[i]->fd,buffer,strlen(buffer)); 
+        if(n==-1) exit(1); //error    
+        #ifdef DEBUG
+            printf("DEBUG: Enviado ao meu adjacente (corda recebida) com id %s a mensagem: %s\n",data->rcv_chords[i]->ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+        #endif
+    }
 
     /////
     ////FALTA PARA AS CORDAS
@@ -1087,7 +1110,26 @@ void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem)
         ssize_t n;
         n=write(data->predecessor.TCP.fd,buffer_envio,strlen(buffer_envio)+1);
         if(n==-1) exit(1); //error
+        return;
     }
+    if (strcmp(no_a_enviar,data->chord.ID)==0)
+    {
+        ssize_t n;
+        n=write(data->chord.TCP.fd,buffer_envio,strlen(buffer_envio)+1);
+        if(n==-1) exit(1); //error
+        return;
+    }
+    for (int i=0;data->rcv_chords[i]->fd!=-1;i++){
+        if (strcmp(no_a_enviar,data->rcv_chords[i]->ID)==0)
+        {
+            ssize_t n;
+            n=write(data->rcv_chords[i]->fd,buffer_envio,strlen(buffer_envio)+1);
+            if(n==-1) exit(1); //error
+            return;
+        }
+    }
+    
+    
 #ifdef DEBUG
     printf("DEBUG: Enviado para o nó %s a mensagem: %s",no_a_enviar,buffer_envio);
 #endif
@@ -1180,9 +1222,9 @@ void send_chord(conect_inf* data){
         do{
             
             //sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
-#ifdef DEBUG
+//#ifdef DEBUG
             printf("token: %s %d\n",token,sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP));
-#endif
+//#endif
             nlinhas++;
             if (strcmp(temp_id,data->sucessor.ID)!=0 && strcmp(temp_id,data->predecessor.ID)!=0 && strcmp(temp_id,data->id)!=0)
             {   
@@ -1192,6 +1234,7 @@ void send_chord(conect_inf* data){
                     if (strcmp(data->rcv_chords[j]->ID,temp_id)==0) k=1;
                 }
                 if (k==0){
+                    printf("No %s adicionado à lista de cordas\n",temp_id);
                     strcpy(strs[i],token);
                     i++;
                 }
