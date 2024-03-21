@@ -106,7 +106,28 @@ char* join(conect_inf*inicial_inf,char* ring,char* id){
         printf("DEBUG: Existem nós no anel\n");
     #endif 
         buffer2_chopped=buffer2+14;
-        sscanf(buffer2_chopped,"%s %s %s",temp_id,temp_IP,temp_TCP);
+
+        char* rest;
+        char* token;
+        char strs[16][40];
+        token=strtok_r(buffer2_chopped,"\n",&rest);
+        int nlinhas=0;
+        do{
+#ifdef DEBUG
+            printf("token: %s %d\n",token,sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP));
+#endif      
+            strcpy(strs[nlinhas],token);
+            nlinhas++;
+
+            token=strtok_r(rest,"\n",&rest);
+        }while (token!=NULL);
+
+        srand(time(NULL));
+        randn=rand()%nlinhas;
+        sscanf(strs[randn],"%s %s %s",temp_id,temp_IP,temp_TCP);
+        printf("No escolhido como sucessor: %s\n",temp_id);
+
+
         while (1){
             sprintf(invite,"REG %s %s %s %s",ring,id_i,inicial_inf->IP,inicial_inf->TCP);
             n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
@@ -330,8 +351,23 @@ int add_client(conect_inf* data, char* buffer, int futurefd){
         
         return 2;
 
-    }
-    else{   //se não for a msg esperada
+    }else if(strstr(buffer,"CHORD ")!=NULL){
+        int i=0;
+        for (i = 0; i < 14; i++)
+        {
+            if(data->rcv_chords[i]->fd==-1){
+                break;
+            }
+        }
+        
+        sscanf(buffer,"%*s %s",data->rcv_chords[i]->ID);
+        data->rcv_chords[i]->fd=futurefd;
+//#ifdef DEBUG
+        printf("Adicionado nó %s como corda\n",data->rcv_chords[i]->ID);
+//#endif    
+        //add_adj(data,3);
+        return 4;
+    }else{   //se não for a msg esperada
         printf("Connection attempt declined\n");
         close(futurefd);
         return -1;
@@ -472,6 +508,26 @@ int leave_ring(conect_inf* data){
     //3. Fechar conexão com o seu predecessor
     close(data->predecessor.TCP.fd);
     data->predecessor.TCP.fd=-1;
+    //fechar com as cordas
+    if (data->chord.TCP.fd!=-1)
+    {
+        close(data->chord.TCP.fd);
+        data->chord.TCP.fd=-1;
+        data->chord.ID[0]='\0';
+        data->chord.IP[0]='\0';
+        data->chord.PORT[0]='\0';
+    }
+
+    
+    for (int i = 0; i < 14; i++)
+    {
+        if(data->rcv_chords[i]->fd!=-1){
+            close(data->rcv_chords[i]->fd);
+            data->rcv_chords[i]->fd=-1;
+            data->rcv_chords[i]->ID[0]='\0';
+        }
+    }
+    free(data->client_info.res);
     //4. Resetar a sua informação
     data->secsuccessor.ID[0]='\0';
     data->secsuccessor.IP[0]='\0';
@@ -696,10 +752,20 @@ void add_adj(conect_inf*data,int pos){
         strcpy(adj,data->sucessor.ID);
         fd=data->client_info.fd;
     }
-    else { 
+    else if (pos==3) { 
         strcpy(adj,data->chord.ID);
         fd=data->chord.TCP.fd;
     }
+    else{
+        int j=0;
+        for (j=0;data->rcv_chords[j]->fd!=-1;j++);
+        j--;
+        printf("corda com id %s\n",data->rcv_chords[j]->ID);
+        strcpy(adj,data->rcv_chords[j]->ID);
+        fd=data->rcv_chords[j]->fd;
+    }
+     
+    
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
             char buffer2[256]={0};
@@ -750,9 +816,9 @@ void rmv_adj(conect_inf*data,char* adj){
 }
 
 void disconect_adj(conect_inf*data,char* adj,char*new_adj){
-//#ifdef DEBUG
+#ifdef DEBUG
     printf("entrou no disconect_adj %s\n",adj);
-//#endif
+#endif
     char buffer[256]={0};
     sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
     for(int i=0;i<=99;i++){
@@ -773,6 +839,24 @@ void disconect_adj(conect_inf*data,char* adj,char*new_adj){
             if(strlen(data->tb_encaminhamento[i][atoi(data->sucessor.ID)])>1 || strlen(data->tb_encaminhamento[i][atoi(data->predecessor.ID)])>1){
                 refresh_caminho_mais_curto(data,i_str);
             }
+            else if (data->chord.TCP.fd!=-1){
+                if(strlen(data->tb_encaminhamento[i][atoi(data->chord.ID)])>1)
+                refresh_caminho_mais_curto(data,i_str);
+                for(int k=0;data->rcv_chords[k]->fd!=-1;k++){
+                    if(strlen(data->tb_encaminhamento[i][atoi(data->rcv_chords[k]->ID)])>1){
+                        refresh_caminho_mais_curto(data,i_str);
+                        k=12;
+                    }
+                }
+            }
+            else{
+                for(int k=0;data->rcv_chords[k]->fd!=-1;k++){
+                    if(strlen(data->tb_encaminhamento[i][atoi(data->rcv_chords[k]->ID)])>1){
+                        refresh_caminho_mais_curto(data,i_str);
+                        k=12;
+                    }
+                }
+            }
 
         }
         if(atoi(adj)==i){
@@ -786,6 +870,7 @@ void disconect_adj(conect_inf*data,char* adj,char*new_adj){
         }
     }
 }
+
 void refresh_caminho_mais_curto(conect_inf*data,char* linha){
     int tam_caminho,menor=-1,tam_menor=200,n,n_caminhos_menores=0;
     char buffer[256]={0};
@@ -807,7 +892,9 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         strcpy(data->tb_caminhos_curtos[atoi(linha)],"-");
         strcpy(data->tb_exped[atoi(linha)],"-");
         sprintf(buffer,"ROUTE %s %s\n",data->id,linha);
+#ifdef DEBUG
         printf("%s\n",buffer);
+#endif
     }
     else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && n_caminhos_menores>1){
          return;
@@ -845,10 +932,20 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
     }
-
-    /////
-    ////FALTA PARA AS CORDAS
-    /////
+    if (data->chord.TCP.fd!=-1){
+        n=write(data->chord.TCP.fd,buffer,strlen(buffer)); 
+        if(n==-1) exit(1); //error    
+        #ifdef DEBUG
+            printf("DEBUG: Enviado ao meu adjacente (corda aberta por mim) com id %s a mensagem: %s\n",data->chord.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+        #endif
+    }
+    for (int i=0;data->rcv_chords[i]->fd!=-1;i++){
+        n=write(data->rcv_chords[i]->fd,buffer,strlen(buffer)); 
+        if(n==-1) exit(1); //error    
+        #ifdef DEBUG
+            printf("DEBUG: Enviado ao meu adjacente (corda recebida) com id %s a mensagem: %s\n",data->rcv_chords[i]->ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
+        #endif
+    }
     return;
 }
 
@@ -909,6 +1006,8 @@ void chamada_route(conect_inf*data,char*mensagem){
     if (num_converted == 3) {   //se trouxer
         //ver se o caminho é válido
         if (strstr(sequencia_com_tracos,id)!=NULL){   
+            strcpy(data->tb_encaminhamento[destino][partida],"-");
+            refresh_caminho_mais_curto(data,destino_str);   
             return;
         }
         else{   //atualizar tabela de encaminhamento e vai extrair o novo caminho mais curto
@@ -924,8 +1023,7 @@ void chamada_route(conect_inf*data,char*mensagem){
 #ifdef DEBUG
             printf("ELIMINADO DE %s a %s\n",partida_str,destino_str);
 #endif
-            for (int k=0;k<100;k++)
-                strcpy(data->tb_encaminhamento[destino][k],"-");  //reset da tabela de encaminhamento
+            strcpy(data->tb_encaminhamento[destino][partida],"-");
             refresh_caminho_mais_curto(data,destino_str);   //atualizar caminhos mais curtos
         }
     }
@@ -1051,7 +1149,26 @@ void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem)
         ssize_t n;
         n=write(data->predecessor.TCP.fd,buffer_envio,strlen(buffer_envio)+1);
         if(n==-1) exit(1); //error
+        return;
     }
+    if (strcmp(no_a_enviar,data->chord.ID)==0)
+    {
+        ssize_t n;
+        n=write(data->chord.TCP.fd,buffer_envio,strlen(buffer_envio)+1);
+        if(n==-1) exit(1); //error
+        return;
+    }
+    for (int i=0;data->rcv_chords[i]->fd!=-1;i++){
+        if (strcmp(no_a_enviar,data->rcv_chords[i]->ID)==0)
+        {
+            ssize_t n;
+            n=write(data->rcv_chords[i]->fd,buffer_envio,strlen(buffer_envio)+1);
+            if(n==-1) exit(1); //error
+            return;
+        }
+    }
+    
+    
 #ifdef DEBUG
     printf("DEBUG: Enviado para o nó %s a mensagem: %s",no_a_enviar,buffer_envio);
 #endif
@@ -1071,7 +1188,6 @@ void rcv_mensagem(conect_inf* data, char* mensagem){
     }
     return;
 }
-
 
 
 
@@ -1096,7 +1212,7 @@ void send_chord(conect_inf* data){
 
     fd = socket(AF_INET, SOCK_DGRAM, 0); //UDP socket
     if (fd == -1){
-        printf("Erro socket na função Join\n");
+        printf("Erro socket na função send chord\n");
         exit(1);
     }
         
@@ -1107,7 +1223,7 @@ void send_chord(conect_inf* data){
 
     errcode = getaddrinfo(data->reg_IP, data->reg_UDP, &hints, &res);
     if (errcode != 0){
-        printf("Erro getaddrinfo na função Join\n");
+        printf("Erro getaddrinfo na função send chord\n");
         exit(1);
     }
         
@@ -1116,7 +1232,7 @@ void send_chord(conect_inf* data){
     sprintf(invite,"NODES %s",data->ring);
     n = sendto(fd,invite, strlen(invite), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1) /*error*/{
-        printf("Erro sendto na função Join\n");
+        printf("Erro sendto na função send chord\n");
         free(res);
         close(fd);
         exit(1);
@@ -1132,77 +1248,145 @@ void send_chord(conect_inf* data){
     printf("Received %ld bytes: %s\n",n , buffer2);
 #endif
     //nodeslist 051\n--->14 carateres
-    if (n>80)
-    {
-        buffer2_chopped=buffer2+14;
-        
-        
-        char* rest;
-        char* token;
-        token=strtok_r(buffer2_chopped,"\n",&rest);
-        int nlinhas=0;
-        while (token!=NULL){
 
-            printf("token: %s\n",token);
-            nlinhas++;
-            token=strtok_r(rest,"\n",&rest);
+    buffer2_chopped=buffer2+14;
+    
+    char* rest;
+    char* token;
+    char strs[16][40];
+    token=strtok_r(buffer2_chopped,"\n",&rest);
+    int nlinhas=0,i=0,k=0;
+    strcpy(temp_id,data->id);
+    do{
+        sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
+        nlinhas++;
+        if (strcmp(temp_id,data->sucessor.ID)!=0 && strcmp(temp_id,data->predecessor.ID)!=0 && strcmp(temp_id,data->id)!=0)
+        {   
+            k=0;
+            for (int j = 0; data->rcv_chords[j]->fd!=-1; j++)
+            {
+                if (strcmp(data->rcv_chords[j]->ID,temp_id)==0) k=1;
+            }
+            if (k==0){
+                printf("No %s adicionado à lista de cordas\n",temp_id);
+                strcpy(strs[i],token);
+                i++;
+            }
 
 
         }
-        char verif[10]={0};
-        printf("nlinhas: %d\n",nlinhas);
-        printf("buffer2_chopped: %s\n",buffer2_chopped);
-        rest=0;
-        token=strtok_r(buffer2_chopped,"\n",&rest);
-        do{
-            
-            randn=rand()%nlinhas;
-            printf("randn: %d\n",randn);
-            for (int i=0;i<randn;i++){
-                token=strtok_r(rest,"\n",&rest);
-                printf("token: %s\n",token);
-            }
-            sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
-            strcpy(verif,temp_id);
-        }while (strcmp(verif,data->sucessor.ID)==0 || strcmp(verif,data->predecessor.ID)==0 || strcmp(verif,data->id)==0);
-        printf("No escolhido: %s\n",temp_id);
-        strcpy(data->chord.ID,temp_id);
-        strcpy(data->chord.IP,temp_IP);
-        strcpy(data->chord.PORT,temp_TCP);
+        token=strtok_r(rest,"\n",&rest);
+    }while (token!=NULL);
+    if (i==0){
+        printf("Não é possivel estabelecer corda com nenhum dos nós do anel\n");
+        return;
+    }
 
+    srand(time(NULL));
+    randn=rand()%i;
+    sscanf(strs[randn],"%s %s %s",temp_id,temp_IP,temp_TCP);
 
-        int errcode;
-        ssize_t n;
-        char input[300];
-        data->chord.TCP.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
-        if (data->chord.TCP.fd==-1) exit(1); //error
+    printf("No escolhido para corda: %s\n",temp_id);
+    strcpy(data->chord.ID,temp_id);
+    strcpy(data->chord.IP,temp_IP);
+    strcpy(data->chord.PORT,temp_TCP);
+    
+    data->chord.TCP.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
+    if (data->chord.TCP.fd==-1) exit(1); //error
 
-        memset(&data->chord.TCP.hints,0,sizeof data->chord.TCP.hints);
-        data->chord.TCP.hints.ai_family=AF_INET; //IPv4
-        data->chord.TCP.hints.ai_socktype=SOCK_STREAM; //TCP socket
+    memset(&data->chord.TCP.hints,0,sizeof data->chord.TCP.hints);
+    data->chord.TCP.hints.ai_family=AF_INET; //IPv4
+    data->chord.TCP.hints.ai_socktype=SOCK_STREAM; //TCP socket
 
-        
-        errcode=getaddrinfo(data->chord.IP,data->chord.PORT,&data->chord.TCP.hints,&data->chord.TCP.res);
-        if(errcode!=0) exit(1); //error
-        n=connect(data->chord.TCP.fd,data->chord.TCP.res->ai_addr,data->chord.TCP.res->ai_addrlen);
-        if(n==-1) exit(1);  //error
-        
-        sprintf(buffer,"CHORD %s\n",data->id);
-        n=write(data->chord.TCP.fd,buffer,strlen(input)+1);
-        if(n==-1)exit(1);  //error
+    
+    errcode=getaddrinfo(data->chord.IP,data->chord.PORT,&data->chord.TCP.hints,&data->chord.TCP.res);
+    if(errcode!=0) exit(1); //error
+    n=connect(data->chord.TCP.fd,data->chord.TCP.res->ai_addr,data->chord.TCP.res->ai_addrlen);
+    if(n==-1) exit(1);  //error
+    
+    sprintf(buffer,"CHORD %s\n",data->id);
+    n=write(data->chord.TCP.fd,buffer,strlen(buffer)+1);
+    if(n==-1)exit(1);  //error
 #ifdef DEBUG
-        printf("DEBUG: Enviado para a corda (%s) pelo socket client fd no caos em que só existe 1 nó: %s",data->chords.ID,input);
+    printf("DEBUG: Enviado para a corda (%s) pelo socket chords fd: %s",data->chord.ID,buffer);
 #endif
     
-    }
-    else{
-        printf("Não foi possível encontrar um nó para a corda\n");
-    }
     freeaddrinfo(res);
     close(fd);
     return;
 }
 
-void rmv_chord(conect_inf* data){
+void rmv_established_chord(conect_inf* data){
+    close(data->chord.TCP.fd);
+    data->chord.TCP.fd=-1;
+    strcpy(data->chord.ID,"\0");
+    strcpy(data->chord.IP,"\0");
+    strcpy(data->chord.PORT,"\0");
     return;
+}
+
+void chord_disconnected(conect_inf* data,int pos){
+    int j=0;
+    _chord* aux;
+    for(j=pos;strlen(data->rcv_chords[j]->ID)>0;j++);
+    j--;
+    aux=data->rcv_chords[pos];
+    data->rcv_chords[pos]=data->rcv_chords[j];
+    data->rcv_chords[j]=aux;
+    data->rcv_chords[j]->fd=-1;
+    data->rcv_chords[j]->ID[0]='\0';
+    return;
+}
+
+void chord_disconnect_adj(conect_inf*data,char* adj){
+#ifdef DEBUG
+    printf("entrou no disconect_adj %s\n",adj);
+#endif
+    char buffer[256]={0};
+    sprintf(buffer,"%s-%s",data->id,adj); // verifca se havia algum caminho mais curto a passar pela adjacencia removida
+    for(int i=0;i<=99;i++){
+        strcpy(data->tb_encaminhamento[i][atoi(adj)],"-");
+        if (strstr(data->tb_caminhos_curtos[i],buffer)!=NULL && atoi(adj)!=i){                 /// tem um caminho que não ele proprio
+#ifdef DEBUG
+            printf("entrou no if e tem na tabela de encaminhamento:%s\n",data->tb_encaminhamento[i][atoi(adj)]);
+#endif
+            
+            char i_str[10];
+            if (i<10){
+                sprintf(i_str,"0%d",i);
+            }
+            else{
+                sprintf(i_str,"%d",i);
+            }
+         
+            if(strlen(data->tb_encaminhamento[i][atoi(data->sucessor.ID)])>1 || strlen(data->tb_encaminhamento[i][atoi(data->predecessor.ID)])>1){
+                refresh_caminho_mais_curto(data,i_str);
+            }
+            else if (data->chord.TCP.fd!=-1){
+                if(strlen(data->tb_encaminhamento[i][atoi(data->chord.ID)])>1)
+                refresh_caminho_mais_curto(data,i_str);
+                for(int k=0;data->rcv_chords[k]->fd!=-1;k++){
+                    if(strlen(data->tb_encaminhamento[i][atoi(data->rcv_chords[k]->ID)])>1){
+                        refresh_caminho_mais_curto(data,i_str);
+                        k=12;
+                    }
+                }
+            }
+            else{
+                for(int k=0;data->rcv_chords[k]->fd!=-1;k++){
+                    if(strlen(data->tb_encaminhamento[i][atoi(data->rcv_chords[k]->ID)])>1){
+                        refresh_caminho_mais_curto(data,i_str);
+                        k=12;
+                    }
+                }
+            }
+
+        }
+        if(atoi(adj)==i){
+#ifdef DEBUG
+            printf("entrou no segundo if/n");
+#endif
+            refresh_caminho_mais_curto(data,adj);
+        }
+    }
 }

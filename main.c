@@ -22,6 +22,7 @@ int main(int argc, char *argv[]){
     data.server_join=false;
     data.ring[0]='\0';
     data.id[0]='\0';
+    
 
     signal(SIGINT, close_sockets);
     
@@ -45,10 +46,15 @@ int main(int argc, char *argv[]){
     data.host_info.fd=-1;
     data.client_info.fd=-1;
     data.predecessor.TCP.fd=-1;
-
+    data.chord.TCP.fd=-1;
+    data.chordadd=false;
     create_TCP_server(&data);
     alloc_tabs(&data);
-
+    for (int i=0;i<14;i++){                           //guarda as estruturas de cordas num vetor de ponteiros
+        data.rcv_chords[i]=&data.mem_chords[i];
+        data.rcv_chords[i]->fd=-1;
+        data.rcv_chords[i]->ID[0]='\0';
+    }
 
     
 
@@ -63,6 +69,7 @@ int main(int argc, char *argv[]){
     int cladd=0;
     int sucadd=0;
     char aux[10]={0};
+    printf("Digite:\n");
     while (1)
     {
         FD_ZERO(&rfds); // inicializar o conjunto de descritores a 0
@@ -70,7 +77,10 @@ int main(int argc, char *argv[]){
         if (data.host_info.fd!=-1) FD_SET(data.host_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
         if (data.client_info.fd!=-1) FD_SET(data.client_info.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
         if (data.predecessor.TCP.fd!=-1) FD_SET(data.predecessor.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
-        maxfd=retmax(data.host_info.fd,data.client_info.fd,data.predecessor.TCP.fd);
+        if (data.chord.TCP.fd!=-1) FD_SET(data.chord.TCP.fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+        for (int i = 0; data.rcv_chords[i]->fd!=-1; i++) FD_SET(data.rcv_chords[i]->fd,&rfds); // adicionar o descritor fd (socket TCP) ao conjunto
+        
+        maxfd=retmax(&data);
 #ifdef DEBUG
         printf("Digite:\n");
 #endif
@@ -80,9 +90,10 @@ int main(int argc, char *argv[]){
             printf("User Input\n");
 #endif
             user_input(&data);
+            printf("Digite:\n");
             continue;
         }
-        if (FD_ISSET(data.host_info.fd,&rfds)){
+        else if (FD_ISSET(data.host_info.fd,&rfds)){
 #ifdef DEBUG
             printf("New connection\n");
 #endif      
@@ -102,21 +113,23 @@ int main(int argc, char *argv[]){
             char aux2[10]={0};
             strcpy(bufferhold,rdbuffer);
             token=strtok_r(bufferhold,"\n",&rest);
+            int ret=0;
             while (token!=NULL)
             {
                 strcpy(aux2,data.predecessor.ID);
-                add_client(&data,token,futurefd);
+                ret=add_client(&data,token,futurefd);
                 token=strtok_r(rest,"\n", &rest);
             }
-            if (strcmp(aux2,data.sucessor.ID)!=0)
+            if (strcmp(aux2,data.sucessor.ID)!=0 && ret!=4)
             {
                 rmv_adj(&data,aux2);
             }
-            cladd=1;
+            if (ret!=4) cladd=1;
+            else add_adj(&data,4);
             
             
         }
-        if (FD_ISSET(data.predecessor.TCP.fd,&rfds))
+        else if (FD_ISSET(data.predecessor.TCP.fd,&rfds))
         {
 #ifdef DEBUG
             printf("Message received from predecessor\n");
@@ -138,8 +151,7 @@ int main(int argc, char *argv[]){
                 strcpy(aux,data.predecessor.ID);
                 
                 pred_reconnect(&data,rdbuffer);
-                disconect_adj(&data,aux,data.predecessor.ID);  
-                //add_adj(&data,1);
+                disconect_adj(&data,aux,data.predecessor.ID); 
                 cladd=2;
                 
             }
@@ -160,7 +172,6 @@ int main(int argc, char *argv[]){
                         }
                         if (cladd==2){
                             cladd=0;
-                            //disconect_adj(&data,aux,data.predecessor.ID);  
                             add_adj(&data,1);
                         }
                         chamada_route(&data,token);
@@ -168,14 +179,11 @@ int main(int argc, char *argv[]){
                     {
                         rcv_mensagem(&data,token);
                     }
-                    else if(strstr(token,"CHORD")){
-                        
-                    }
                     token=strtok_r(rest,"\n", &rest);
                 }
             }           
         }
-        if (FD_ISSET(data.client_info.fd,&rfds))
+        else if (FD_ISSET(data.client_info.fd,&rfds))
         {
 #ifdef DEBUG
             printf("Message received from sucessor\n");
@@ -196,9 +204,7 @@ int main(int argc, char *argv[]){
 
                 strcpy(aux,data.sucessor.ID);
                 suc_reconnect(&data,rdbuffer);
-                //disconect_adj(&data,aux,data.sucessor.ID);  
                 sucadd=2;
-                //add_adj(&data,2);
                 
             }
             else{
@@ -235,13 +241,84 @@ int main(int argc, char *argv[]){
                         }
                         chamada_route(&data,token);
 
-                    }else if(strstr(rdbuffer,"CHORD")){
                     }
                     token=strtok_r(rest,"\n", &rest);
                 }
 
             }
 
+        }else if (FD_ISSET(data.chord.TCP.fd,&rfds)){
+#ifdef DEBUG
+            printf("Message received from established chord\n");
+#endif          
+            char rdbuffer[256]={0};
+            n=read(data.chord.TCP.fd,rdbuffer,256);
+            FD_CLR(data.chord.TCP.fd,&rfds);
+            if (n==-1) printf("ERRO a receber mensagem\n");
+            else if(n==0){
+                printf("Chord desconectado\n");
+                chord_disconnect_adj(&data,data.chord.ID);
+                rmv_established_chord(&data);
+            }
+            else{
+                strcpy(bufferhold,rdbuffer);
+
+                char* rest;
+                char* token; 
+                
+                token=strtok_r(bufferhold,"\n",&rest);
+                while (token!=NULL)
+                {
+                    if (strstr(token,"ROUTE ")){
+                        if (data.chordadd){
+                            data.chordadd=false;
+                            add_adj(&data,3);
+                        }
+                        chamada_route(&data,token);
+                    }else if(strstr(token,"CHAT ")){
+                        rcv_mensagem(&data,token);
+                    }
+                    token=strtok_r(rest,"\n", &rest);
+                }
+            }
+            
+        }else{
+            for (int i = 0; i < 14; i++)
+            {
+                if (FD_ISSET(data.rcv_chords[i]->fd,&rfds)){
+#ifdef DEBUG
+                    printf("Message received from chord with id %s\n",data.rcv_chords[i]->ID);
+#endif          
+                    char rdbuffer[256]={0};
+                    n=read(data.rcv_chords[i]->fd,rdbuffer,256);
+                    FD_CLR(data.rcv_chords[i]->fd,&rfds);
+                    if (n==-1) printf("ERRO a receber mensagem\n");
+                    else if(n==0){
+                        printf("Chord desconectado\n");
+                        strcpy(aux,data.rcv_chords[i]->ID);
+                        chord_disconnected(&data,i);
+                        chord_disconnect_adj(&data,aux);
+                    }
+                    else{
+                        strcpy(bufferhold,rdbuffer);
+
+                        char* rest;
+                        char* token; 
+                        
+                        token=strtok_r(bufferhold,"\n",&rest);
+                        while (token!=NULL)
+                        {
+                            if (strstr(token,"ROUTE ")){
+                               
+                                chamada_route(&data,token);
+                            }else if(strstr(token,"CHAT ")){
+                                rcv_mensagem(&data,token);
+                            }
+                            token=strtok_r(rest,"\n", &rest);
+                        }
+                    }
+                }
+            }
         }
     }
     return 0;
@@ -385,6 +462,12 @@ void user_input( conect_inf* data){
         printf("Sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->sucessor.ID,data->sucessor.IP,data->sucessor.PORT);
         printf("Segundo sucessor:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->secsuccessor.ID,data->secsuccessor.IP,data->secsuccessor.PORT);
         printf("Corda estabelecida:\n\tid: %s\n\tIP: %s\n\tPorta: %s\n",data->chord.ID,data->chord.IP,data->chord.PORT);
+        printf("Cordas recebidas: ");
+        for (int i = 0; i < 14; i++)
+        {
+            if (data->rcv_chords[i]->ID[0]!='\0') printf("%s ",data->rcv_chords[i]->ID);
+        }
+        printf("\n");
     }
     else if(input[0]=='s' && input[1]=='r' && input[2]==' '){
         char dest[10]={0};
@@ -455,13 +538,25 @@ void user_input( conect_inf* data){
             printf("Mensagem enviada para %s\n",dest);
         }
     }
-    else if (input[0]=='c' && input[1]==' ')    
+    else if (input[0]=='c')    
     {
-        send_chord(data);    
+        if(data->chord.TCP.fd==-1 && strcmp(data->secsuccessor.ID,data->predecessor.ID)!=0 && strcmp(data->sucessor.ID,data->predecessor.ID)!=0 && strcmp(data->id,data->sucessor.ID)!=0){
+            send_chord(data); 
+            data->chordadd=true;
+        }
+        else{
+            printf("Não é possivel estabelecer corda com nenhum dos nós do anel_input\n\n\n");
+            return;
+        }
     }
-    else if (input[0]=='r' && input[1]=='c' && input[2]==' ')    
+    else if (input[0]=='r' && input[1]=='c')    
     {
-        rmv_chord(data);
+        if(data->chord.TCP.fd!=-1){
+            char aux[10]={0};
+            strcpy(aux,data->chord.ID);
+            rmv_established_chord(data);
+            chord_disconnect_adj(data,aux);
+        } 
     }
     
     else if(input[0]=='r'){
@@ -486,8 +581,19 @@ void user_input( conect_inf* data){
     return;
 }
 
-int retmax(int a, int b, int c){
-    if (a>b && a>c) return a;
-    else if (b>a && b>c) return b;
-    else return c;
+int retmax(conect_inf*data){
+    int maxfd=-1;
+    if(data->predecessor.TCP.fd>maxfd)
+        maxfd=data->predecessor.TCP.fd;
+    if(data->client_info.fd>maxfd)
+        maxfd=data->client_info.fd;
+    if(data->host_info.fd>maxfd)
+        maxfd=data->host_info.fd;
+    if(data->chord.TCP.fd>maxfd)
+        maxfd=data->chord.TCP.fd;
+    for (int i=0;data->rcv_chords[i]->fd!=-1;i++){
+        if(data->rcv_chords[i]->fd>maxfd)
+            maxfd=data->rcv_chords[i]->fd;
+    }
+    return maxfd;
 }
