@@ -548,7 +548,7 @@ int leave_ring(conect_inf* data){
 void pred_reconnect(conect_inf* data,char *buffer){
 
     char send_buffer[256]={0};
-
+    //se o nó que saiu do anel for o meu predecessor:
     if (strcmp(data->id,data->secsuccessor.ID)==0)
     {
     #ifdef DEBUG
@@ -608,12 +608,13 @@ void suc_reconnect(conect_inf* data,char *buffer){
     ssize_t n;
     int errcode;  
     char send_buffer[256]={0};
-    
+    //se o nó que saiu do anel for o meu sucessor:
     if (strcmp(data->id,data->secsuccessor.ID)==0)
     {
     #ifdef DEBUG
         printf("DEBUG: Saiu um dos 2 nós do anel. A colocar-me como nó único\n");
     #endif
+    //colocar o meu segundo sucessor como meu sucessor
         close(data->client_info.fd);
         data->client_info.fd=-1;
         close(data->predecessor.TCP.fd);
@@ -683,6 +684,7 @@ void suc_reconnect(conect_inf* data,char *buffer){
     return;
 }
 void alloc_tabs(conect_inf* data){
+    //alocar tabelas
     for (int i=0;i<=99;i++){
         for (int j=0;j<=99;j++) {                         ///alocar tabelas
             data->tb_encaminhamento[i][j]= (char *)calloc(50, sizeof(char));
@@ -730,20 +732,23 @@ void init_tabs(conect_inf* data){
     return;
 }
 
+
+//função que atualiza a tabela de caminhos mais curtos
 void add_adj(conect_inf*data,int pos){
+    
     char adj[10];
     int i=0,n,fd;
 #ifdef DEBUG
     printf("entrou no add_adj\n");
 #endif
-    if (strcmp(data->id,data->sucessor.ID)==0)
+    if (atoi(data->id)==atoi(data->sucessor.ID))
     {
 #ifdef DEBUG
         printf("entrou no return\n");
 #endif
         return;
     }
-
+    //determinar a adjacencia
     if (pos==1){ 
         strcpy(adj,data->predecessor.ID);   ///determina se a adajacencia foi de um predecessor sucessor ou corda
         fd=data->predecessor.TCP.fd;
@@ -765,7 +770,7 @@ void add_adj(conect_inf*data,int pos){
         fd=data->rcv_chords[j]->fd;
     }
      
-    
+    //enviar a tabela de caminhos mais curtos ao meu adjacente
     for (i=0;i<=99;i++){
         if(data->tb_caminhos_curtos[i][0]!='-'){
             char buffer2[256]={0};
@@ -790,6 +795,7 @@ void add_adj(conect_inf*data,int pos){
     return;
 }
 
+//função que atualiza a tabela de caminhos mais curtos
 void rmv_adj(conect_inf*data,char* adj){
 #ifdef DEBUG
     printf("entrou no rmv_adj para tirar o %s\n",adj);
@@ -815,6 +821,7 @@ void rmv_adj(conect_inf*data,char* adj){
     }
 }
 
+//função que atualiza a tabela de caminhos mais curtos
 void disconect_adj(conect_inf*data,char* adj,char*new_adj){
 #ifdef DEBUG
     printf("entrou no disconect_adj %s\n",adj);
@@ -827,7 +834,6 @@ void disconect_adj(conect_inf*data,char* adj,char*new_adj){
 #ifdef DEBUG
             printf("entrou no if e tem na tabela de encaminhamento:%s\n",data->tb_encaminhamento[i][atoi(adj)]);
 #endif
-            
             char i_str[10];
             if (i<10){
                 sprintf(i_str,"0%d",i);
@@ -871,12 +877,14 @@ void disconect_adj(conect_inf*data,char* adj,char*new_adj){
     }
 }
 
+//função que atualiza a tabela de caminhos mais curtos
 void refresh_caminho_mais_curto(conect_inf*data,char* linha){
     int tam_caminho,menor=-1,tam_menor=200,n,n_caminhos_menores=0;
     char buffer[256]={0};
-    if (strcmp(data->id,linha)==0){
+    if (atoi(data->id)==atoi(linha)){
         return;
     }
+    //verificar se o caminho mais curto passa pela adjacencia removida
     for (int i=0;i<=99;i++){
         tam_caminho=contar_nos_no_caminho(data->tb_encaminhamento[atoi(linha)][i]);
         if (tam_caminho>0 && tam_caminho<tam_menor){
@@ -887,7 +895,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         else if(tam_caminho>0 && tam_caminho==tam_menor)
             n_caminhos_menores++;
     }
-
+    //se não houver caminho mais curto
     if (menor==-1){
         strcpy(data->tb_caminhos_curtos[atoi(linha)],"-");
         strcpy(data->tb_exped[atoi(linha)],"-");
@@ -896,12 +904,12 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         printf("%s\n",buffer);
 #endif
     }
-    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && n_caminhos_menores>1){
+    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && n_caminhos_menores>1){   //se houver mais do que um caminho mais curto
          return;
     }
     else if (contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor && strcmp(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor])==0)
         return;
-    else{
+    else{   //se houver um caminho mais curto
         strcpy(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor]);
         if (tam_menor==2){
             sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s",data->tb_exped[atoi(linha)]); 
@@ -916,7 +924,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
         printf("DEBUG: Atualizado caminho mais curto\n");
     #endif
     }
-
+    //enviar a tabela de caminhos mais curtos ao meu adjacente
     if((strcmp(data->sucessor.ID,data->id)!=0) && (data->client_info.fd!=-1)){
         n=write(data->client_info.fd,buffer,strlen(buffer)); 
         if(n==-1) exit(1); //error    
@@ -924,7 +932,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             printf("DEBUG: Enviado ao meu adjacente (sucessor) com id %s a mensagem: %s\n",data->sucessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
     }
-
+    //enviar a tabela de caminhos mais curtos ao meu adjacente
     if((strcmp(data->predecessor.ID,data->id)!=0) && (data->predecessor.TCP.fd!=-1)){
         n=write(data->predecessor.TCP.fd,buffer,strlen(buffer)); 
         if(n==-1) exit(1); //error    
@@ -932,6 +940,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             printf("DEBUG: Enviado ao meu adjacente (predecessor) com id %s a mensagem: %s\n",data->predecessor.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
     }
+    //  enviar a tabela de caminhos mais curtos ao meu adjacente
     if (data->chord.TCP.fd!=-1){
         n=write(data->chord.TCP.fd,buffer,strlen(buffer)); 
         if(n==-1) exit(1); //error    
@@ -939,6 +948,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
             printf("DEBUG: Enviado ao meu adjacente (corda aberta por mim) com id %s a mensagem: %s\n",data->chord.ID,buffer);   //mostrar msg enviada (SUCC k k.IP k.TCP\n)
         #endif
     }
+    //enviar a tabela de caminhos mais curtos ao meu adjacente
     for (int i=0;data->rcv_chords[i]->fd!=-1;i++){
         n=write(data->rcv_chords[i]->fd,buffer,strlen(buffer)); 
         if(n==-1) exit(1); //error    
@@ -949,6 +959,7 @@ void refresh_caminho_mais_curto(conect_inf*data,char* linha){
     return;
 }
 
+//função que atualiza a tabela de caminhos mais curtos
 void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha){
     int tam_caminho,menor=-1,tam_menor=200;
     if (strcmp(data->id,linha)==0){
@@ -961,15 +972,15 @@ void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha){
             menor=i;
         }
     }
-
+    //se não houver caminho mais curto
     if (menor==-1){
         strcpy(data->tb_caminhos_curtos[atoi(linha)],"-");
         strcpy(data->tb_exped[atoi(linha)],"-");
     }
-    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor){
+    else if(contar_nos_no_caminho(data->tb_caminhos_curtos[atoi(linha)])==tam_menor){   //se houver mais do que um caminho mais curto
         return;
     }
-    else{
+    else{   //se houver um caminho mais curto
         strcpy(data->tb_caminhos_curtos[atoi(linha)],data->tb_encaminhamento[atoi(linha)][menor]);
         if (tam_menor==2){
             sscanf(data->tb_caminhos_curtos[atoi(linha)],"%*d-%s",data->tb_exped[atoi(linha)]); 
@@ -987,9 +998,12 @@ void refresh_caminho_mais_curto_sem_encaminhamento(conect_inf*data,char* linha){
 }
 
 void chamada_route(conect_inf*data,char*mensagem){
+    //receber mensagem com o caminho mais curto
     int partida, destino;
     char partida_str[10]={0};
     char destino_str[10]={0};
+    char partida_str1[9]={0};
+    char destino_str1[9]={0};
     char id[11]={0};
     char buffer[256]={0};
     char sequencia_com_tracos[200]={0};
@@ -997,14 +1011,19 @@ void chamada_route(conect_inf*data,char*mensagem){
 #ifdef DEBUG
     printf("DEBUG: Recebida a mensagem: %s na funcao da chamada route\n",mensagem);
 #endif
-    
-    int num_converted = sscanf(mensagem, "ROUTE %s %s %s\n", partida_str, destino_str, sequencia_com_tracos);
+    //extrair os dados da mensagem
+    int num_converted = sscanf(mensagem, "ROUTE %s %s %s\n", partida_str1, destino_str1, sequencia_com_tracos);
+    if (strlen(partida_str)==1) sprintf(partida_str,"0%s",partida_str1);
+    else(sprintf(partida_str,"%s",partida_str1));
+    if (strlen(destino_str)==1) sprintf(destino_str,"0%s",destino_str1);
+    else(sprintf(destino_str,"%s",destino_str1));
     partida=atoi(partida_str);
     destino=atoi(destino_str);
     sprintf(id,"-%s",data->id);
     //Verificar se trouxe caminho na mensagem ou saiu um nó
     if (num_converted == 3) {   //se trouxer
         //ver se o caminho é válido
+        seq_fix(sequencia_com_tracos);
         if (strstr(sequencia_com_tracos,id)!=NULL){   
             strcpy(data->tb_encaminhamento[destino][partida],"-");
             refresh_caminho_mais_curto(data,destino_str);   
@@ -1030,7 +1049,7 @@ void chamada_route(conect_inf*data,char*mensagem){
     return;
 }
 
-
+//função que conta o número de nós no caminho
 int contar_nos_no_caminho(char *str) {
     int numeros = 0;
     char *ponteiro = str;
@@ -1055,6 +1074,7 @@ int contar_nos_no_caminho(char *str) {
     return numeros;
 }
 
+//função que corrige a sequência de números
 int rcv_pred(conect_inf*data){
     char buffer[128]={0};
     ssize_t n;
@@ -1100,6 +1120,7 @@ void init_pred(conect_inf*data){
     int errcode;
     ssize_t n;
     char input[300];
+    //iniciar socket TCP para ser cliente do meu predecessor
     data->client_info.fd=socket(AF_INET,SOCK_STREAM,0); //TCP socket
     if (data->client_info.fd==-1) exit(1); //error
 
@@ -1122,6 +1143,7 @@ void init_pred(conect_inf*data){
     return;
 }
 
+
 void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem){
     int d=atoi(dest);
 
@@ -1130,7 +1152,7 @@ void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem)
     strcpy(no_a_enviar,data->tb_exped[d]);
 
     char buffer_envio[256]={0};
-
+    //enviar a mensagem ao nó que a deve receber
     if (strcmp(origem,data->id)==0)
     {
         sprintf(buffer_envio,"CHAT %s %s %s\n",data->id,dest,mensagem);
@@ -1178,8 +1200,16 @@ void enviar_mensagem(conect_inf* data, char* dest, char* mensagem, char* origem)
 void rcv_mensagem(conect_inf* data, char* mensagem){
     char origem[10]={0};
     char destino[10]={0};
+    char origem1[9]={0};
+    char destino1[9]={0};
     char msg[256]={0};
-    sscanf(mensagem,"CHAT %s %s %s\n",origem,destino,msg);
+    //extrair os dados da mensagem
+    sscanf(mensagem,"CHAT %s %s %s\n",origem1,destino1,msg);
+    if (strlen(destino)==1) sprintf(destino,"0%s",destino1);
+    else sprintf(destino,"%s",destino1);
+    if (strlen(origem)==1) sprintf(origem,"0%s",origem1);
+    else sprintf(origem,"%s",origem1);
+    //verificar se a mensagem é para mim
     if (strcmp(destino,data->id)==0)
     {
         printf("Mensagem recebida de %s:%s\n",origem,&mensagem[11]);
@@ -1257,6 +1287,7 @@ void send_chord(conect_inf* data){
     token=strtok_r(buffer2_chopped,"\n",&rest);
     int nlinhas=0,i=0,k=0;
     strcpy(temp_id,data->id);
+    //escolher um nó para estabelecer corda
     do{
         sscanf(token,"%s %s %s",temp_id,temp_IP,temp_TCP);
         nlinhas++;
@@ -1281,7 +1312,7 @@ void send_chord(conect_inf* data){
         printf("Não é possivel estabelecer corda com nenhum dos nós do anel\n");
         return;
     }
-
+    //escolher um nó aleatório
     srand(time(NULL));
     randn=rand()%i;
     sscanf(strs[randn],"%s %s %s",temp_id,temp_IP,temp_TCP);
@@ -1317,6 +1348,7 @@ void send_chord(conect_inf* data){
 }
 
 void rmv_established_chord(conect_inf* data){
+    //enviar mensagem ao nó que vai ser removido
     close(data->chord.TCP.fd);
     data->chord.TCP.fd=-1;
     strcpy(data->chord.ID,"\0");
@@ -1326,6 +1358,7 @@ void rmv_established_chord(conect_inf* data){
 }
 
 void chord_disconnected(conect_inf* data,int pos){
+    //enviar mensagem ao nó que vai ser removido
     int j=0;
     _chord* aux;
     for(j=pos;strlen(data->rcv_chords[j]->ID)>0;j++);
@@ -1339,6 +1372,7 @@ void chord_disconnected(conect_inf* data,int pos){
 }
 
 void chord_disconnect_adj(conect_inf*data,char* adj){
+    //enviar mensagem ao nó que vai ser removido
 #ifdef DEBUG
     printf("entrou no disconect_adj %s\n",adj);
 #endif
@@ -1389,4 +1423,30 @@ void chord_disconnect_adj(conect_inf*data,char* adj){
             refresh_caminho_mais_curto(data,adj);
         }
     }
+}
+
+void seq_fix(char* bad_seq){
+    //função que corrige a sequência de números e coloca 2 digitos
+    char* rest;
+    char* token;
+    char good_seq[256]={0};
+    token=strtok_r(bad_seq,"-",&rest);
+    while (token!=NULL){
+        char aux[256]={0};
+        if (strlen(token)==1){
+            sprintf(aux,"0%s",token);
+            strcat(good_seq,aux);
+            strcat(good_seq,"-");
+            
+        }
+        else{
+            strcat(good_seq,token);
+            strcat(good_seq,"-");
+        }
+        token=strtok_r(rest,"-",&rest);
+    }
+    good_seq[strlen(good_seq)-1]='\0';
+    
+    strcpy(bad_seq,good_seq);
+    return;
 }

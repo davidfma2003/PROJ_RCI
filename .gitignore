@@ -9,3 +9,5 @@ cmds
 dj
 test_script_init
 *.gch
+*.out
+t.c
