@@ -69,14 +69,16 @@ typedef struct IP_s{
     node secsuccessor;    //informação das ligações com 2o sucessor
     node chord;
 
-    _chord *rcv_chords[13];
-    _chord mem_chords[13];
+    _chord *rcv_chords[14];
+    _chord mem_chords[14];
 
     char *tb_encaminhamento[100][100];
     char tb_exped[100][3];
     char *tb_caminhos_curtos[100];
 
     fd_set* rfds;
+
+    bool chordadd;
 
 }conect_inf;
 
@@ -128,5 +130,7 @@ void send_chord(conect_inf* data);
 void rmv_chord(conect_inf* data);
 void chord_disconnected(conect_inf* data,int pos);
 void rmv_established_chord(conect_inf* data);
+void chord_disconnect_adj(conect_inf*data,char* adj);
+
 
 #endif // MAIN_H
